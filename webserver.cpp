@@ -1577,7 +1577,7 @@ void webserver_reset_client(struct webserver_t *client) {
 }
 
 void webserver_loop(void) {
-  uint16_t pos = 0, x = 0, size = 0;
+  uint16_t size = 0;
   uint8_t i = 0;
 
   for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {

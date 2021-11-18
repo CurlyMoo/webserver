@@ -1273,7 +1273,9 @@ void test_receive(void) {
        * Send request in chunks
        */
       for(x=0;x<len;x+=size) {
+#ifdef WEBSERVER_ASYNC
         struct pbuf buf;
+#endif
         char *bar = NULL;
         if(x+size > len) {
           bar = (char *)malloc((strlen(out)-x)+1);
@@ -1284,11 +1286,11 @@ void test_receive(void) {
           memset(bar, 0, size+1);
           memcpy(bar, &out[x], size);
         }
+#ifdef WEBSERVER_ASYNC
         buf.payload = bar;
         buf.len = strlen(bar);
         buf.next = NULL;
 
-#ifdef WEBSERVER_ASYNC
         webserver_receive(NULL, &pcb, &buf, 0);
 #else
         webserver_receive(&clients[0].data, (uint8_t *)bar, strlen(bar));
@@ -2079,13 +2081,12 @@ int client_available(void) {
 }
 
 void test_send(void) {
-  struct tcp_pcb pcb;
-
   memset(&clients, 0, sizeof(struct webserver_client_t)*WEBSERVER_MAX_CLIENTS);
 
   webserver_reset_client(&clients[1].data);
 
 #ifdef WEBSERVER_ASYNC
+  struct tcp_pcb pcb;
   clients[1].data.pcb = &pcb;
 #endif
   clients[1].data.callback = &webserver_cb;
