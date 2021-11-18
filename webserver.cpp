@@ -813,7 +813,6 @@ int http_parse_multipart_body(struct webserver_t *client, char *buf, uint16_t le
                  * right after, check for 5 positions
                  */
                 if((client->ptr - pos) >= 5) {
-                 int x = 0;
                   client->buffer[pos++] = '=';;
                   char *ptr2 = strnstr(&client->buffer[pos], "\r\n\r\n", client->ptr-pos);
                   if(ptr2 != NULL) {
@@ -874,7 +873,6 @@ int http_parse_multipart_body(struct webserver_t *client, char *buf, uint16_t le
             client->headerstep = 0;
             client->readlen += ((pos+2)-(vlen+1));
           } else if(client->ptr == WEBSERVER_BUFFER_SIZE) {
-            int y = 0;
             char *ptr = (char *)memchr(client->buffer, '=', client->ptr);
             if(ptr != NULL) {
               uint16_t pos = (ptr-client->buffer);
@@ -1015,7 +1013,6 @@ static uint16_t webserver_create_header(struct webserver_t *client, uint16_t cod
     header.buffer = &p[i];
     header.ptr = i;
 
-    uint16_t ret = 0;
     if(client->callback(client, &header) == -1) {
       if(strstr_P((char *)&p[i], PSTR("\r\n\r\n")) == NULL) {
         if(strstr((char *)&p[i], PSTR("\r\n")) != NULL) {
@@ -1313,7 +1310,6 @@ int8_t webserver_send(struct webserver_t *client, uint16_t code, char *mimetype,
       header.buffer = &p[i];
       header.ptr = i;
 
-      uint16_t ret = 0;
       if(client->callback(client, &header) == -1) {
         if(strstr_P((char *)&p[i], PSTR("\r\n\r\n")) == NULL) {
           if(strstr_P((char *)&p[i], PSTR("\r\n")) != NULL) {
@@ -1414,8 +1410,7 @@ err_t webserver_receive(void *arg, tcp_pcb *pcb, struct pbuf *data, err_t err) {
 #else
 uint8_t webserver_receive(struct webserver_t *client, uint8_t *rbuffer, uint16_t size) {
 #endif
-  char *ptr = NULL;
-  uint16_t pos = 0, x = 0, i = 0;
+  uint16_t i = 0, x = 0;
   struct pbuf *b = NULL;
 
 #ifdef WEBSERVER_ASYNC
@@ -1582,7 +1577,7 @@ void webserver_reset_client(struct webserver_t *client) {
 }
 
 void webserver_loop(void) {
-  uint16_t pos = 0, x = 0, lastseen = 0, size = 0;
+  uint16_t pos = 0, x = 0, size = 0;
   uint8_t i = 0;
 
   for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {

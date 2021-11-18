@@ -125,7 +125,7 @@ typedef struct webserver_client_t {
   struct webserver_t data;
 } webserver_client_t;
 
-enum {
+typedef enum {
   WEBSERVER_CLIENT_CONNECTING = 1,
   WEBSERVER_CLIENT_REQUEST_METHOD,
   WEBSERVER_CLIENT_REQUEST_URI,

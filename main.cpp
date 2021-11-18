@@ -33,7 +33,6 @@
 static uint16_t testnr = 0;
 static uint16_t headernr = 0;
 static uint16_t argnr = 0;
-static uint16_t ptr = 0;
 static uint16_t done = 1;
 
 struct websettings_t {
@@ -54,12 +53,14 @@ void tcp_poll(struct tcp_pcb *pcb, err_t (*)(void *arg, struct tcp_pcb *pcb), un
 void tcp_recved(struct tcp_pcb *pcb, unsigned int) {
 }
 unsigned int tcp_sndbuf(struct tcp_pcb *pcb) {
+  return 0;
 }
 void tcp_close(struct tcp_pcb *pcb) {
 }
 void tcp_output(struct tcp_pcb *pcb) {
 }
 int tcp_write(struct tcp_pcb *pcb, void *, unsigned int, unsigned int) {
+  return 0;
 }
 int millis() {
   return 0;
@@ -1194,11 +1195,11 @@ void test_receive(void) {
     for(size=1;size<4096;size++) {
       // size = 1024; // 64, 71, 162, 72
       fprintf(stderr, "%s:%d: receive test #%d with buffer %d\n", __FUNCTION__, __LINE__, testnr+1, size);
-      struct tcp_pcb pcb;
 
       memset(&clients[0], 0, sizeof(struct webserver_t));
 
 #ifdef WEBSERVER_ASYNC
+      struct tcp_pcb pcb;
       clients[0].data.pcb = &pcb;
 #endif
       clients[0].data.callback = &webserver_cb;
