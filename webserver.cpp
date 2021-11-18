@@ -1411,7 +1411,6 @@ err_t webserver_receive(void *arg, tcp_pcb *pcb, struct pbuf *data, err_t err) {
 uint8_t webserver_receive(struct webserver_t *client, uint8_t *rbuffer, uint16_t size) {
 #endif
   uint16_t i = 0, x = 0;
-  struct pbuf *b = NULL;
 
 #ifdef WEBSERVER_ASYNC
   if(data == NULL) {
