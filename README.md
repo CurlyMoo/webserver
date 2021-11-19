@@ -336,41 +336,28 @@ As soon as the client is ready to accept data, this event is triggered. When the
 
 E.g.,
 
-`WEBSERVER_CLIENT_CREATE_HEADER`
-
-The webserver will respond with a default header. While the webserver constructs the header, this event it called to add additional values without having to buffer it. The data parameter will be of `struct header_t` type containing the `buffer` and `ptr` parameter. Additional values can be added like so:
-
 ```c
-struct header_t *header = (struct header_t *)data;
-header->ptr += sprintf((char *)header->buffer, "Access-Control-Allow-Origin: *");
-```
-
-
-
-```c
-if(client->step == WEBSERVER_CLIENT_SEND_HEADER) {
-  webserver_send(client, 200, (char *)"text/html", 0);
-  return 0;
 }
 if(client->step == WEBSERVER_CLIENT_WRITE) {
   switch(client->content) {
     case 0: {
+			webserver_send(client, 200, (char *)"text/html", 0);
       webserver_send_content_P(client, (char *)gplv3_1, strlen(gplv3_1));
       webserver_send_content(client, (char *)gplv3_2, strlen(gplv3_2));
-      webserver_send_content(client, (char *)gplv3_3, strlen(gplv3_3));
       return 0;
     } break;
     case 1: {
+      webserver_send_content(client, (char *)gplv3_3, strlen(gplv3_3));
       webserver_send_content(client, (char *)gplv3_4, strlen(gplv3_4));
-      webserver_send_content(client, (char *)gplv3_5, strlen(gplv3_5));
       return 0;
     } break;
     case 2: {
+      webserver_send_content(client, (char *)gplv3_5, strlen(gplv3_5));
       webserver_send_content(client, (char *)gplv3_6, strlen(gplv3_6));
-      webserver_send_content(client, (char *)gplv3_7, strlen(gplv3_7));
       return 0;
     } break;
     case 3: {
+      webserver_send_content(client, (char *)gplv3_7, strlen(gplv3_7));
       webserver_send_content(client, (char *)gplv3_8, strlen(gplv3_8));
       return 0;
     } break;
@@ -381,3 +368,12 @@ if(client->step == WEBSERVER_CLIENT_WRITE) {
 }
 ```
   
+
+`WEBSERVER_CLIENT_CREATE_HEADER`
+
+The webserver will respond with a default header. While the webserver constructs the header, this event it called to add additional values without having to buffer it. The data parameter will be of `struct header_t` type containing the `buffer` and `ptr` parameter. Additional values can be added like so:
+
+```c
+struct header_t *header = (struct header_t *)data;
+header->ptr += sprintf((char *)header->buffer, "Access-Control-Allow-Origin: *");
+```
