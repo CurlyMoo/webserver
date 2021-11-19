@@ -391,7 +391,7 @@ uint8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *
     /*
      * Request method
      */
-    if(client->headerstep == 0) {
+    if(client->substep == 0) {
       if(strncmp_P(client->buffer, PSTR("GET "), 4) == 0) {
         client->method = 0;
         if(client->callback != NULL) {
@@ -406,7 +406,7 @@ uint8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *
         }
         memmove(&client->buffer[0], &client->buffer[4], client->ptr-4);
         client->ptr -= 4;
-        client->headerstep = 1;
+        client->substep = 1;
       }
       if(strncmp_P(client->buffer, PSTR("POST "), 5) == 0) {
         client->method = 1;
@@ -421,13 +421,13 @@ uint8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *
         client->step = WEBSERVER_CLIENT_READ_HEADER;
         memmove(&client->buffer[0], &client->buffer[5], client->ptr-5);
         client->ptr -= 5;
-        client->headerstep = 1;
+        client->substep = 1;
       }
     }
       /*
        * Request URI
        */
-    if(client->headerstep == 1) {
+    if(client->substep == 1) {
       char *ptr1 = (char *)memchr(client->buffer, '?', client->ptr);
       char *ptr2 = (char *)memchr(client->buffer, ' ', client->ptr);
       if(ptr2 == NULL || (ptr1 != NULL && ptr2 > ptr1)) {
@@ -441,7 +441,7 @@ uint8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *
         } else {
           uint16_t pos = ptr1-client->buffer;
           client->buffer[pos] = 0;
-          client->headerstep = 2;
+          client->substep = 2;
           client->step = WEBSERVER_CLIENT_REQUEST_URI;
           if(client->callback != NULL) {
             if(client->callback(client, client->buffer) == -1) {
@@ -455,7 +455,7 @@ uint8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *
       } else {
         uint16_t pos = ptr2-client->buffer;
         client->buffer[pos] = 0;
-        client->headerstep = 2;
+        client->substep = 2;
         client->step = WEBSERVER_CLIENT_REQUEST_URI;
         if(client->callback != NULL) {
           if(client->callback(client, client->buffer) == -1) {
@@ -468,7 +468,7 @@ uint8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *
         client->ptr -= pos;
       }
     }
-    if(client->headerstep == 2) {
+    if(client->substep == 2) {
       client->step = WEBSERVER_CLIENT_ARGS;
       int ret = webserver_parse_post(client, client->ptr);
       client->step = WEBSERVER_CLIENT_READ_HEADER;
@@ -482,25 +482,25 @@ uint8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *
       }
       if(client->ptr >= 4) {
         if(strncmp(client->buffer, " HTTP/1.1", 9) == 0) {
-          client->headerstep = 3;
+          client->substep = 3;
         } else {
           continue;
         }
       }
     }
-    if(client->headerstep == 3) {
+    if(client->substep == 3) {
       uint16_t i = 0;
       while(i < client->ptr-2) {
         if(strncmp_P(&client->buffer[i], PSTR("\r\n"), 2) == 0) {
           memmove(&client->buffer[0], &client->buffer[i+2], client->ptr-(i+2));
           client->ptr -= (i + 2);
-          client->headerstep = 4;
+          client->substep = 4;
           break;
         }
         i++;
       }
     }
-    if(client->headerstep == 4) {
+    if(client->substep == 4) {
       char *ptr = (char *)memchr(client->buffer, ':', client->ptr);
 
       while(ptr != NULL) {
@@ -589,13 +589,13 @@ uint8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *
         client->ptr -= 2;
         client->readlen = 0;
         if(client->ptr == 0) {
-          client->headerstep = 5;
+          client->substep = 5;
           continue;
         }
         return 0;
       }
     }
-    if(client->headerstep == 5) {
+    if(client->substep == 5) {
       return 0;
     }
   }
@@ -662,7 +662,7 @@ int http_parse_multipart_body(struct webserver_t *client, char *buf, uint16_t le
     loop = 1;
 
     while(loop) {
-      switch(client->headerstep) {
+      switch(client->substep) {
         // Boundary
         case 0: {
           char *ptr = strnstr(client->buffer, client->boundary, client->ptr);
@@ -675,7 +675,7 @@ int http_parse_multipart_body(struct webserver_t *client, char *buf, uint16_t le
                 client->ptr = client->ptr-(pos+1);
                 client->buffer[client->ptr] = 0;
                 client->readlen += (pos+1);
-                client->headerstep = 1;
+                client->substep = 1;
               }
             }
             if(pos+3 <= client->ptr) {
@@ -696,7 +696,7 @@ int http_parse_multipart_body(struct webserver_t *client, char *buf, uint16_t le
           } else {
             loop = 0;
           }
-          if(client->headerstep == 0) {
+          if(client->substep == 0) {
             loop = 0;
           }
         } break;
@@ -714,7 +714,7 @@ int http_parse_multipart_body(struct webserver_t *client, char *buf, uint16_t le
             client->ptr = client->ptr-(pos);
             client->buffer[client->ptr] = 0;
             client->readlen += pos;
-            client->headerstep = 2;
+            client->substep = 2;
           } else {
             loop = 0;
           }
@@ -730,7 +730,7 @@ int http_parse_multipart_body(struct webserver_t *client, char *buf, uint16_t le
             client->ptr -= pos;
             client->buffer[client->ptr] = 0;
             client->readlen += pos;
-            client->headerstep = 3;
+            client->substep = 3;
           } else {
             loop = 0;
           }
@@ -743,7 +743,7 @@ int http_parse_multipart_body(struct webserver_t *client, char *buf, uint16_t le
             memmove(&client->buffer[0], &client->buffer[pos], client->ptr-(pos));
             client->ptr = client->ptr-(pos);
             client->readlen += pos;
-            client->headerstep = 6;
+            client->substep = 6;
           } else {
             loop = 0;
           }
@@ -761,9 +761,9 @@ int http_parse_multipart_body(struct webserver_t *client, char *buf, uint16_t le
               memmove(&client->buffer[pos], &client->buffer[pos1+2], newlen);
               client->ptr = newlen;
               client->readlen += (pos1+2);
-              client->headerstep = 5;
+              client->substep = 5;
             } else {
-              client->headerstep = 6;
+              client->substep = 6;
             }
           } else {
             loop = 0;
@@ -782,7 +782,7 @@ int http_parse_multipart_body(struct webserver_t *client, char *buf, uint16_t le
                 memmove(&client->buffer[pos], &client->buffer[pos1], newlen);
                 client->ptr = newlen;
                 client->readlen += (pos1-pos);
-                client->headerstep = 7;
+                client->substep = 7;
               } else {
                 loop = 0;
               }
@@ -800,7 +800,7 @@ int http_parse_multipart_body(struct webserver_t *client, char *buf, uint16_t le
             if(ptr != NULL) {
               char *ptr1 = strnstr(client->buffer, "\r\n", client->ptr);
               if(ptr1 != NULL) {
-                client->headerstep = 4;
+                client->substep = 4;
               } else {
                 loop = 0;
               }
@@ -821,7 +821,7 @@ int http_parse_multipart_body(struct webserver_t *client, char *buf, uint16_t le
                     memmove(&client->buffer[pos], &client->buffer[pos1], client->ptr-pos1);
                     client->ptr -= (pos1-pos);
                     client->readlen += pos1;
-                    client->headerstep = 7;
+                    client->substep = 7;
                   } else {
                     loop = 0;
                   }
@@ -870,7 +870,7 @@ int http_parse_multipart_body(struct webserver_t *client, char *buf, uint16_t le
 
             memmove(&client->buffer[0], &client->buffer[pos+2], client->ptr-(pos+2));
             client->ptr -= (pos+2);
-            client->headerstep = 0;
+            client->substep = 0;
             client->readlen += ((pos+2)-(vlen+1));
           } else if(client->ptr == WEBSERVER_BUFFER_SIZE) {
             char *ptr = (char *)memchr(client->buffer, '=', client->ptr);
@@ -1328,6 +1328,7 @@ int8_t webserver_send(struct webserver_t *client, uint16_t code, char *mimetype,
       i = header.ptr;
       client->step = WEBSERVER_CLIENT_WRITE;
     }
+
     i += snprintf((char *)&p[i], sizeof(buffer)-i, PSTR("Keep-Alive: timeout=15, max=100\r\n"));
     i += snprintf((char *)&p[i], sizeof(buffer)-i, PSTR("Content-Type: %s\r\n"), mimetype);
     i += snprintf((char *)&p[i], sizeof(buffer)-i, PSTR("Transfer-Encoding: chunked\r\n\r\n"));
@@ -1442,7 +1443,7 @@ uint8_t webserver_receive(struct webserver_t *client, uint8_t *rbuffer, uint16_t
                   clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
                 }
               } else if(clients[i].data.reqtype == 1) {
-                clients[i].data.headerstep = 0;
+                clients[i].data.substep = 0;
                 if(http_parse_multipart_body(&clients[i].data, (char *)&rbuffer[x], size) == -1) {
                   clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
                 }
@@ -1456,7 +1457,7 @@ uint8_t webserver_receive(struct webserver_t *client, uint8_t *rbuffer, uint16_t
 #endif
               }
             } else {
-              clients[i].data.step = WEBSERVER_CLIENT_SEND_HEADER;
+              clients[i].data.step = WEBSERVER_CLIENT_WRITE;
             }
           }
         }
@@ -1474,8 +1475,7 @@ uint8_t webserver_receive(struct webserver_t *client, uint8_t *rbuffer, uint16_t
         }
 
 #ifdef WEBSERVER_ASYNC
-        if(clients[i].data.step == WEBSERVER_CLIENT_WRITE ||
-           clients[i].data.step == WEBSERVER_CLIENT_SEND_HEADER) {
+        if(clients[i].data.step == WEBSERVER_CLIENT_WRITE) {
           if((client->totallen = tcp_sndbuf(client->pcb)) > 0) {
             client->totallen = MTU_SIZE;
             client->totallen -= 16;
@@ -1483,9 +1483,6 @@ uint8_t webserver_receive(struct webserver_t *client, uint8_t *rbuffer, uint16_t
               if(clients[i].data.callback(&clients[i].data, NULL) == -1) {
                 clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
                 return -1;
-              }
-              if(clients[i].data.step == WEBSERVER_CLIENT_SEND_HEADER) {
-                clients[i].data.step = WEBSERVER_CLIENT_WRITE;
               }
               clients[i].data.ptr = 0;
             } else {
@@ -1530,7 +1527,7 @@ err_t webserver_client(void *arg, tcp_pcb *pcb, err_t err) {
       clients[i].data.readlen = 0;
       clients[i].data.totallen = 0;
       clients[i].data.ptr = 0;
-      clients[i].data.headerstep = 0;
+      clients[i].data.substep = 0;
       clients[i].data.content = 0;
       clients[i].data.sendlist = NULL;
       clients[i].data.callback = (webserver_cb_t *)arg;
@@ -1563,7 +1560,7 @@ void webserver_reset_client(struct webserver_t *client) {
   client->totallen = 0;
   client->active = 0;
   client->step = 0;
-  client->headerstep = 0;
+  client->substep = 0;
   client->chunked = 0;
   client->ptr = 0;
   client->route = 0;
@@ -1619,23 +1616,17 @@ void webserver_loop(void) {
           clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
         }
       } break;
-      case WEBSERVER_CLIENT_WRITE:
-      case WEBSERVER_CLIENT_SEND_HEADER: {
+      case WEBSERVER_CLIENT_WRITE: {
         if(clients[i].data.callback != NULL) {
-          if(clients[i].data.step == WEBSERVER_CLIENT_SEND_HEADER) {
+          if(clients[i].data.step == WEBSERVER_CLIENT_WRITE) {
             if(clients[i].data.callback(&clients[i].data, NULL) == -1) {
               clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
-              continue;
-            }
-          } else if(clients[i].data.step == WEBSERVER_CLIENT_WRITE) {
-            if(clients[i].data.callback(&clients[i].data, NULL) == -1) {
-              clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
-            } else {
+            } else if(clients[i].data.content > 0) {
               clients[i].data.step = WEBSERVER_CLIENT_SENDING;
+            } else {
+              clients[i].data.step = WEBSERVER_CLIENT_WRITE;
+              clients[i].data.content++;
             }
-          }
-          if(clients[i].data.step == WEBSERVER_CLIENT_SEND_HEADER) {
-            clients[i].data.step = WEBSERVER_CLIENT_WRITE;
           }
           clients[i].data.ptr = 0;
         } else {

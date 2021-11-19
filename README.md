@@ -326,9 +326,15 @@ This event is triggered for every header value or POST or GET arguments parsed. 
 
 As soon as the client was done sending the request, the server can respond with a valid response. Again, because buffering is kept to the minimum, events are used to construct the response.
 
-`WEBSERVER_CLIENT_SEND_HEADER`
+`WEBSERVER_CLIENT_WRITE`
 
-Each response starts with a header. This event is therefor the first to be called when the response is sent. The data parameter will be `NULL` as no data is being sent to the callback.
+The data parameter will be `NULL` as no data is being sent to the callback.
+
+The webserver struct has a special field called `content` which increases each time the webserver is done sending the queue. You can use that field to check where in the sending procedure the webserver is.
+
+As soon as the client is ready to accept data, this event is triggered. When the `content` field is 0 the header must be sent before the body. As soon as no more new content is queued for sending, the webserver will disconnect and free the client. The response queue is the only structure in of the webserver that actually allocates memory. It's advices not to sent to much information at the same time, because this will still take a lot of memory.
+
+E.g.,
 
 `WEBSERVER_CLIENT_CREATE_HEADER`
 
@@ -339,13 +345,7 @@ struct header_t *header = (struct header_t *)data;
 header->ptr += sprintf((char *)header->buffer, "Access-Control-Allow-Origin: *");
 ```
 
-`WEBSERVER_CLIENT_WRITE`
 
-The response body should be sent when this event is triggered. As soon as no more new content is queued for sending, the webserver will disconnect and free the client. The response queue is the only structure in of the webserver that actually allocates memory. It's advices not to sent to much information at the same time, because this will still take a lot of memory.
-
-The webserver struct has a special field called `content` which increases each time the webserver is done sending the queue. You can use that field to check where in the sending procedure the webserver is.
-
-E.g.,
 
 ```c
 if(client->step == WEBSERVER_CLIENT_SEND_HEADER) {

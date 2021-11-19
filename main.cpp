@@ -1055,7 +1055,6 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
       }
     } break;
     case WEBSERVER_CLIENT_REQUEST_URI: {
-      // printf("%s\n", (char *)data);
       if(strcmp(unittest[testnr].url, (char *)data) != 0) {
         /*LCOV_EXCL_START*/
         fprintf(stderr, "%s:%d: test #%d failed, expected %s got %s\n",
@@ -1103,7 +1102,6 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
     } break;
     case WEBSERVER_CLIENT_HEADER: {
       struct arguments_t *args = (struct arguments_t *)data;
-      // printf("[%s] [%d][%.*s]\n", (char *)args->name, args->len, args->len, args->value);
       if(strcmp(unittest[testnr].header[headernr].name, (char *)args->name) != 0) {
         fprintf(stderr, "%s:%d: test #%d failed, expected %s got %s\n",
           __FUNCTION__, __LINE__, testnr+1, unittest[testnr].header[headernr].name, (char *)args->name
@@ -1126,49 +1124,48 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
 
       return 0;
     } break;
-    case WEBSERVER_CLIENT_SEND_HEADER: {
-      if(testnr == 0) {
-        webserver_send(client, 200, (char *)"text/html", 0);
-      } else if(testnr == 1) {
-        webserver_send(client, 200, (char *)"text/html",
-          strlen(gplv3_1)+strlen(gplv3_2)+strlen(gplv3_3)+strlen(gplv3_4)+
-          strlen(gplv3_5)+strlen(gplv3_6)+strlen(gplv3_3)+strlen(gplv3_8));
-        client->step = WEBSERVER_CLIENT_SEND_HEADER;
-      } else if(testnr == 2) {
-        webserver_send(client, 301, (char *)"text/html", 0);
-        client->step = WEBSERVER_CLIENT_SEND_HEADER;
-      }
-      return 0;
-    } break;
     case WEBSERVER_CLIENT_WRITE: {
-      if(testnr == 2) {
-        return -1;
-      } else {
-        switch(client->content) {
-          case 0: {
+      switch(client->content) {
+        case 0: {
+          if(testnr == 0) {
+            webserver_send(client, 200, (char *)"text/html", 0);
             webserver_send_content_P(client, (char *)gplv3_1, strlen(gplv3_1));
+          } else if(testnr == 1) {
+            webserver_send(client, 200, (char *)"text/html",
+              strlen(gplv3_1)+strlen(gplv3_2)+strlen(gplv3_3)+strlen(gplv3_4)+
+              strlen(gplv3_5)+strlen(gplv3_6)+strlen(gplv3_3)+strlen(gplv3_8));
+            webserver_send_content_P(client, (char *)gplv3_1, strlen(gplv3_1));
+          } else if(testnr == 2) {
+            webserver_send(client, 301, (char *)"text/html", 0);
+          }
+          return 0;
+        } break;
+        case 1: {
+          if(testnr == 2) {
+            return -1;
+          } else {
             webserver_send_content(client, (char *)gplv3_2, strlen(gplv3_2));
             webserver_send_content(client, (char *)gplv3_3, strlen(gplv3_3));
             return 0;
-          } break;
-          case 1: {
-            webserver_send_content(client, (char *)gplv3_4, strlen(gplv3_4));
-            webserver_send_content(client, (char *)gplv3_5, strlen(gplv3_5));
-            return 0;
-          } break;
-          case 2: {
-            webserver_send_content(client, (char *)gplv3_6, strlen(gplv3_6));
-            webserver_send_content(client, (char *)gplv3_7, strlen(gplv3_7));
-            return 0;
-          } break;
-          case 3: {
-            webserver_send_content(client, (char *)gplv3_8, strlen(gplv3_8));
-            return 0;
-          } break;
-          default: {
-            return -1;
-          } break;
-        }
+          }
+        } break;
+        case 2: {
+          webserver_send_content(client, (char *)gplv3_4, strlen(gplv3_4));
+          webserver_send_content(client, (char *)gplv3_5, strlen(gplv3_5));
+          return 0;
+        } break;
+        case 3: {
+          webserver_send_content(client, (char *)gplv3_6, strlen(gplv3_6));
+          webserver_send_content(client, (char *)gplv3_7, strlen(gplv3_7));
+          return 0;
+        } break;
+        case 4: {
+          webserver_send_content(client, (char *)gplv3_8, strlen(gplv3_8));
+          return 0;
+        } break;
+        default: {
+          return -1;
+        } break;
       }
     } break;
     case WEBSERVER_CLIENT_CREATE_HEADER: {
@@ -1302,7 +1299,6 @@ void test_receive(void) {
        */
       struct websettings_t *tmp = websettings;
       while(tmp) {
-        // printf("a\n");
         for(y=0;y<unittest[testnr].numargs;y++) {
           char *bar = strdup(unittest[testnr].args[y].name);
           urldecode(bar,
@@ -2072,7 +2068,7 @@ int client_connected(void) {
 }
 
 int client_read(uint8_t *buf, int size) {
-  clients[1].data.step = WEBSERVER_CLIENT_SEND_HEADER;
+  clients[1].data.step = WEBSERVER_CLIENT_WRITE;
   return 1;
 }
 
@@ -2102,8 +2098,8 @@ void test_send(void) {
 }
 
 int main(void) {
-  test_receive();
 
+  test_receive();
   testnr = 0;
 
   for(testnr=0;testnr<3;testnr++) {

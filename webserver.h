@@ -108,7 +108,7 @@ typedef struct webserver_t {
   uint8_t method:2;
   uint8_t chunked:4;
   uint8_t step:4;
-  uint8_t headerstep:4;
+  uint8_t substep:4;
   uint16_t ptr;
   uint16_t totallen;
   uint16_t readlen;
@@ -130,7 +130,6 @@ typedef enum {
   WEBSERVER_CLIENT_REQUEST_METHOD,
   WEBSERVER_CLIENT_REQUEST_URI,
   WEBSERVER_CLIENT_READ_HEADER,
-  WEBSERVER_CLIENT_SEND_HEADER,
   WEBSERVER_CLIENT_CREATE_HEADER,
   WEBSERVER_CLIENT_WRITE,
   WEBSERVER_CLIENT_SENDING,
