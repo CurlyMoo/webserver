@@ -56,6 +56,6 @@ target_link_libraries(${PROJECT_NAME}_shared m)
 
 set_target_properties(${PROJECT_NAME}_shared ${PROJECT_NAME}_static PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
 
-add_executable(start webserver.cpp main.cpp)
+add_executable(start webserver.cpp main.cpp strnstr.cpp strncasestr.cpp)
 target_link_libraries(start ${PROJECT_NAME}_shared)
 

@@ -5,7 +5,7 @@ if [[ "$COVERAGE" == "1" && "$TRAVIS_EVENT_TYPE" != "pull_request" ]]; then
     gem install coveralls-lcov
     lcov -c -d CMakeFiles/webserver.dir -d CMakeFiles/start.dir -o coverage.info
 
-    lcov -r coverage.info '/usr/include/*' '*main.cpp' -o coverage-filtered.info
+    lcov -r coverage.info '/usr/include/*' '*main.cpp' '*strncasestr.cpp' '*strnstr.cpp' -o coverage-filtered.info
 
     lcov --list coverage-filtered.info
 

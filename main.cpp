@@ -26,6 +26,7 @@
   #include <pthread.h>
 #endif
 
+#include "strncasestr.h"
 #include "webserver.h"
 #include "unittest.h"
 #include "gplv3.h"
@@ -111,6 +112,70 @@ struct unittest_t {
     {
       { 0, "user+name", "%3F12+3%24%25" },
       { 0, "pass+word", "%3F%3E%3C%3A1%29%28%2A" },
+    }
+  },
+  {
+    "GET",
+    "/",
+    "HTTP/1.1",
+    NULL,
+    0,
+    8,
+    {
+      { "Host", "10.0.0.74" },
+      { "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.0" },
+      { "Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8" },
+      { "Accept-Language", "nl,en-US;q=0.7,en;q=0.3" },
+      { "Accept-Encoding", "gzip, deflate" },
+      { "DNT", "1" },
+      { "Connection", "keep-alive" },
+      { "Upgrade-Insecure-Requests", "1" },
+    },
+    0,
+    { 0, NULL, NULL }
+  },
+  {
+    "GET",
+    "/tablerefresh",
+    "HTTP/1.1",
+    NULL,
+    0,
+    8,
+    {
+      { "Host", "10.0.0.74" },
+      { "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.0" },
+      { "Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8" },
+      { "Accept-Language", "nl,en-US;q=0.7,en;q=0.3" },
+      { "Accept-Encoding", "gzip, deflate" },
+      { "DNT", "1" },
+      { "Connection", "keep-alive" },
+      { "Upgrade-Insecure-Requests", "1" },
+    },
+    1,
+    { 0, "s0", NULL }
+  },
+  {
+    "GET",
+    "/tablerefresh",
+    "HTTP/1.1",
+    NULL,
+    0,
+    8,
+    {
+      { "Host", "10.0.0.74" },
+      { "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.0" },
+      { "Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8" },
+      { "Accept-Language", "nl,en-US;q=0.7,en;q=0.3" },
+      { "Accept-Encoding", "gzip, deflate" },
+      { "DNT", "1" },
+      { "Connection", "keep-alive" },
+      { "Upgrade-Insecure-Requests", "1" },
+    },
+    3,
+    {
+      { 0, "s0", "foo" },
+      { 0, "s1", NULL },
+      { 0, "s2", "" }
     }
   },
   {
@@ -1068,34 +1133,37 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
     } break;
     case WEBSERVER_CLIENT_ARGS: {
       struct arguments_t *args = (struct arguments_t *)data;
-              // 3%s] [%.*s]\n", args->name, args->len, args->value);
-      if(args->value != NULL) {
-        struct websettings_t *tmp = websettings;
+      struct websettings_t *tmp = websettings;
 
-        while(tmp) {
-          if(strcmp(tmp->name, args->name) == 0) {
+      while(tmp) {
+        if(strcmp(tmp->name, args->name) == 0) {
+          if(args->value != NULL) {
             tmp->value = (char *)realloc(tmp->value, tmp->ptr+args->len+1);
             memcpy(&tmp->value[tmp->ptr], args->value, args->len);
             tmp->ptr += args->len;
             tmp->value[tmp->ptr] = 0;
-
-            break;
           }
-          tmp = tmp->next;
+
+          break;
         }
-        if(tmp == NULL) {
-          struct websettings_t *node = (struct websettings_t *)malloc(sizeof(struct websettings_t));
-          node->name = strdup(args->name);
-          node->next = NULL;
+        tmp = tmp->next;
+      }
+      if(tmp == NULL) {
+        struct websettings_t *node = (struct websettings_t *)malloc(sizeof(struct websettings_t));
+        node->name = strdup(args->name);
+        node->next = NULL;
+        node->ptr = 0;
+        if(args->value != NULL) {
           node->value = (char *)malloc(args->len+1);
-          node->ptr = 0;
           memcpy(&node->value[node->ptr], args->value, args->len);
           node->ptr = args->len;
           node->value[node->ptr] = 0;
-
-          node->next = websettings;
-          websettings = node;
+        } else {
+          node->value = NULL;
         }
+
+        node->next = websettings;
+        websettings = node;
       }
 
       return 0;
@@ -1190,7 +1258,6 @@ void test_receive(void) {
 
   while(testnr < nrtests) {
     for(size=1;size<4096;size++) {
-      // size = 1024; // 64, 71, 162, 72
       fprintf(stderr, "%s:%d: receive test #%d with buffer %d\n", __FUNCTION__, __LINE__, testnr+1, size);
 
       memset(&clients[0], 0, sizeof(struct webserver_t));
@@ -1213,17 +1280,29 @@ void test_receive(void) {
         memsize += strlen(unittest[testnr].header[z].name)+strlen(unittest[testnr].header[z].value)+4;
       }
       for(z=0;z<unittest[testnr].numargs;z++) {
-        memsize += ((strlen(unittest[testnr].args[z].name)+strlen(unittest[testnr].args[z].value))*3)+4;
+        if(unittest[testnr].args[z].value != NULL) {
+          memsize += ((strlen(unittest[testnr].args[z].name)+strlen(unittest[testnr].args[z].value))*3)+4;
+        } else {
+          memsize += (strlen(unittest[testnr].args[z].name)*3)+4;
+        }
       }
       char *out = (char *)malloc(memsize);
       len = 0;
       if(strcmp(unittest[testnr].method, "GET") == 0) {
-        len += sprintf(&out[len], "%s %s?", unittest[testnr].method, unittest[testnr].url);
+        if(unittest[testnr].numargs > 0) {
+          len += sprintf(&out[len], "%s %s?", unittest[testnr].method, unittest[testnr].url);
+        } else {
+          len += sprintf(&out[len], "%s %s", unittest[testnr].method, unittest[testnr].url);
+        }
 
         for(z=0;z<unittest[testnr].numargs;z++) {
           char *name = unittest[testnr].args[z].name;
-          char *value = unittest[testnr].args[z].value;
-          len += sprintf(&out[len], "%s=%s", name, value);
+          if(unittest[testnr].args[z].value != NULL) {
+            char *value = unittest[testnr].args[z].value;
+            len += sprintf(&out[len], "%s=%s", name, value);
+          } else {
+            len += sprintf(&out[len], "%s", name);
+          }
           if(z < unittest[testnr].numargs-1) {
             len += sprintf(&out[len], "&");
           }
@@ -1294,6 +1373,13 @@ void test_receive(void) {
 #endif
       }
 
+      if(clients[0].data.step != WEBSERVER_CLIENT_WRITE) {
+        fprintf(stderr, "%s:%d: test #%d failed, expected %d got %d\n",
+          __FUNCTION__, __LINE__, testnr+1, WEBSERVER_CLIENT_WRITE, clients[0].data.step
+        );
+        exit(-1);
+      }
+
       /*
        * Check if all arguments came through
        */
@@ -1307,20 +1393,25 @@ void test_receive(void) {
               strlen(bar)+1,
               1
           );
+
           if(strcmp(bar, tmp->name) == 0) {
-            char *foo = strdup(unittest[testnr].args[y].value);
-            urldecode(foo,
-              strlen(foo)+1,
-              foo,
-              strlen(foo)+1,
-              1
-            );
-            if(strcmp(foo, tmp->value) == 0) {
+            if(tmp->value != NULL) {
+              char *foo = strdup(unittest[testnr].args[y].value);
+              urldecode(foo,
+                strlen(foo)+1,
+                foo,
+                strlen(foo)+1,
+                1
+              );
+              if(strcmp(foo, tmp->value) == 0) {
+                argnr++;
+              }
+              free(foo);
+              free(bar);
+              break;
+            } else {
               argnr++;
             }
-            free(foo);
-            free(bar);
-            break;
           }
           free(bar);
         }
@@ -2098,7 +2189,6 @@ void test_send(void) {
 }
 
 int main(void) {
-
   test_receive();
   testnr = 0;
 
