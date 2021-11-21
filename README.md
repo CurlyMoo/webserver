@@ -341,7 +341,7 @@ E.g.,
 if(client->step == WEBSERVER_CLIENT_WRITE) {
   switch(client->content) {
     case 0: {
-			webserver_send(client, 200, (char *)"text/html", 0);
+      webserver_send(client, 200, (char *)"text/html", 0);
       webserver_send_content_P(client, (char *)gplv3_1, strlen(gplv3_1));
       webserver_send_content(client, (char *)gplv3_2, strlen(gplv3_2));
       return 0;

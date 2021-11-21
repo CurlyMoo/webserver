@@ -19,6 +19,8 @@
   #include <errno.h>
   #include <ctype.h>
   #include <string.h>
+  #include <sys/stat.h>
+  #include <unistd.h>
   #include <fcntl.h>
   #include <sys/types.h>
   #include <sys/time.h>
@@ -31,15 +33,15 @@
 #include "unittest.h"
 #include "gplv3.h"
 
-static uint16_t testnr = 0;
+static int16_t testnr = 0;
 static uint16_t headernr = 0;
 static uint16_t argnr = 0;
 static uint16_t done = 1;
 
 struct websettings_t {
-  char *name;
-  char *value;
-  uint16_t ptr;
+  unsigned char *name;
+  unsigned char *value;
+  uint32_t ptr;
   struct websettings_t *next;
 };
 
@@ -428,7 +430,7 @@ struct unittest_t {
     1,
     {
       { 0, "rules", "                    GNU GENERAL PUBLIC LICENSE\r\n"
-"                       Version 3, 29 June 2007\r\n"
+      "                       Version 3, 29 June 2007\r\n"
       "\r\n"
       " Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>\r\n"
       " Everyone is permitted to copy and distribute verbatim copies\r\n"
@@ -1110,7 +1112,7 @@ struct unittest_t {
 int8_t webserver_cb(struct webserver_t *client, void *data) {
   switch(client->step) {
     case WEBSERVER_CLIENT_REQUEST_METHOD: {
-      if(strcmp(unittest[testnr].method, (char *)data) != 0) {
+      if(testnr > -1 && strcmp(unittest[testnr].method, (char *)data) != 0) {
         /*LCOV_EXCL_START*/
         fprintf(stderr, "%s:%d: test #%d failed, expected %s got %s\n",
           __FUNCTION__, __LINE__, testnr+1, unittest[testnr].method, (char *)data
@@ -1120,7 +1122,7 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
       }
     } break;
     case WEBSERVER_CLIENT_REQUEST_URI: {
-      if(strcmp(unittest[testnr].url, (char *)data) != 0) {
+      if(testnr > -1 && strcmp(unittest[testnr].url, (char *)data) != 0) {
         /*LCOV_EXCL_START*/
         fprintf(stderr, "%s:%d: test #%d failed, expected %s got %s\n",
           __FUNCTION__, __LINE__, testnr+1, unittest[testnr].url, (char *)data
@@ -1132,57 +1134,70 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
       return 0;
     } break;
     case WEBSERVER_CLIENT_ARGS: {
-      struct arguments_t *args = (struct arguments_t *)data;
-      struct websettings_t *tmp = websettings;
+      // if(testnr == -1) {
+        // struct arguments_t *args = (struct arguments_t *)data;
+        // int i = 0;
+      // } else {
+        struct arguments_t *args = (struct arguments_t *)data;
+        struct websettings_t *tmp = websettings;
 
-      while(tmp) {
-        if(strcmp(tmp->name, args->name) == 0) {
+        while(tmp) {
+          if(strcmp((char *)tmp->name, (char *)args->name) == 0) {
+            if(args->value != NULL) {
+              tmp->value = (unsigned char *)realloc(tmp->value, tmp->ptr+args->len+1);
+              memcpy(&tmp->value[tmp->ptr], args->value, args->len);
+              tmp->ptr += args->len;
+              tmp->value[tmp->ptr] = 0;
+            }
+
+            break;
+          }
+          tmp = tmp->next;
+        }
+        if(tmp == NULL) {
+          struct websettings_t *node = (struct websettings_t *)malloc(sizeof(struct websettings_t));
+          node->name = (unsigned char *)strdup((char *)args->name);
+          node->next = NULL;
+          node->ptr = 0;
           if(args->value != NULL) {
-            tmp->value = (char *)realloc(tmp->value, tmp->ptr+args->len+1);
-            memcpy(&tmp->value[tmp->ptr], args->value, args->len);
-            tmp->ptr += args->len;
-            tmp->value[tmp->ptr] = 0;
+            node->value = (unsigned char *)malloc(args->len+1);
+            memcpy(&node->value[node->ptr], args->value, args->len);
+            node->ptr = args->len;
+            node->value[node->ptr] = 0;
+          } else {
+            node->value = NULL;
           }
 
-          break;
+          node->next = websettings;
+          websettings = node;
         }
-        tmp = tmp->next;
-      }
-      if(tmp == NULL) {
-        struct websettings_t *node = (struct websettings_t *)malloc(sizeof(struct websettings_t));
-        node->name = strdup(args->name);
-        node->next = NULL;
-        node->ptr = 0;
-        if(args->value != NULL) {
-          node->value = (char *)malloc(args->len+1);
-          memcpy(&node->value[node->ptr], args->value, args->len);
-          node->ptr = args->len;
-          node->value[node->ptr] = 0;
-        } else {
-          node->value = NULL;
-        }
-
-        node->next = websettings;
-        websettings = node;
+      // }
+      if(client->readlen > client->totallen) {
+        /*LCOV_EXCL_START*/
+        fprintf(stderr, "%s:%d: test #%d failed, expected %s got %s\n",
+          __FUNCTION__, __LINE__, testnr+1, unittest[testnr].url, (char *)data
+        );
+        exit(-1);
+        /*LCOV_EXCL_STOP*/
       }
 
       return 0;
     } break;
     case WEBSERVER_CLIENT_HEADER: {
       struct arguments_t *args = (struct arguments_t *)data;
-      if(strcmp(unittest[testnr].header[headernr].name, (char *)args->name) != 0) {
+      if(testnr > -1 && strcmp(unittest[testnr].header[headernr].name, (char *)args->name) != 0) {
         fprintf(stderr, "%s:%d: test #%d failed, expected %s got %s\n",
           __FUNCTION__, __LINE__, testnr+1, unittest[testnr].header[headernr].name, (char *)args->name
         );
         exit(-1);
       }
-      if(strlen(unittest[testnr].header[headernr].value) != args->len) {
+      if(testnr > -1 && strlen(unittest[testnr].header[headernr].value) != args->len) {
         fprintf(stderr, "%s:%d: test #%d failed, expected length #%ld got #%d\n",
           __FUNCTION__, __LINE__, testnr+1, strlen(unittest[testnr].header[headernr].value), args->len
         );
         exit(-1);
       }
-      if(strncmp(unittest[testnr].header[headernr].value, (char *)args->value, args->len) != 0) {
+      if(testnr > -1 && strncmp(unittest[testnr].header[headernr].value, (char *)args->value, args->len) != 0) {
         fprintf(stderr, "%s:%d: test #%d failed, expected %s got %s\n",
           __FUNCTION__, __LINE__, testnr+1, unittest[testnr].header[headernr].value, (char *)args->value
         );
@@ -1197,12 +1212,12 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
         case 0: {
           if(testnr == 0) {
             webserver_send(client, 200, (char *)"text/html", 0);
-            webserver_send_content_P(client, (char *)gplv3_1, strlen(gplv3_1));
+            webserver_send_content_P(client, (unsigned char *)gplv3_1, strlen((char *)gplv3_1));
           } else if(testnr == 1) {
             webserver_send(client, 200, (char *)"text/html",
-              strlen(gplv3_1)+strlen(gplv3_2)+strlen(gplv3_3)+strlen(gplv3_4)+
-              strlen(gplv3_5)+strlen(gplv3_6)+strlen(gplv3_3)+strlen(gplv3_8));
-            webserver_send_content_P(client, (char *)gplv3_1, strlen(gplv3_1));
+              strlen((char *)gplv3_1)+strlen((char *)gplv3_2)+strlen((char *)gplv3_3)+strlen((char *)gplv3_4)+
+              strlen((char *)gplv3_5)+strlen((char *)gplv3_6)+strlen((char *)gplv3_3)+strlen((char *)gplv3_8));
+            webserver_send_content_P(client, (unsigned char *)gplv3_1, strlen((char *)gplv3_1));
           } else if(testnr == 2) {
             webserver_send(client, 301, (char *)"text/html", 0);
           }
@@ -1212,23 +1227,23 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
           if(testnr == 2) {
             return -1;
           } else {
-            webserver_send_content(client, (char *)gplv3_2, strlen(gplv3_2));
-            webserver_send_content(client, (char *)gplv3_3, strlen(gplv3_3));
+            webserver_send_content(client, (char *)gplv3_2, strlen((char *)gplv3_2));
+            webserver_send_content(client, (char *)gplv3_3, strlen((char *)gplv3_3));
             return 0;
           }
         } break;
         case 2: {
-          webserver_send_content(client, (char *)gplv3_4, strlen(gplv3_4));
-          webserver_send_content(client, (char *)gplv3_5, strlen(gplv3_5));
+          webserver_send_content(client, (char *)gplv3_4, strlen((char *)gplv3_4));
+          webserver_send_content(client, (char *)gplv3_5, strlen((char *)gplv3_5));
           return 0;
         } break;
         case 3: {
-          webserver_send_content(client, (char *)gplv3_6, strlen(gplv3_6));
-          webserver_send_content(client, (char *)gplv3_7, strlen(gplv3_7));
+          webserver_send_content(client, (char *)gplv3_6, strlen((char *)gplv3_6));
+          webserver_send_content(client, (char *)gplv3_7, strlen((char *)gplv3_7));
           return 0;
         } break;
         case 4: {
-          webserver_send_content(client, (char *)gplv3_8, strlen(gplv3_8));
+          webserver_send_content(client, (char *)gplv3_8, strlen((char *)gplv3_8));
           return 0;
         } break;
         default: {
@@ -1371,6 +1386,7 @@ void test_receive(void) {
 #else
         webserver_receive(&clients[0].data, (uint8_t *)bar, strlen(bar));
 #endif
+        free(bar);
       }
 
       if(clients[0].data.step != WEBSERVER_CLIENT_WRITE) {
@@ -1387,23 +1403,23 @@ void test_receive(void) {
       while(tmp) {
         for(y=0;y<unittest[testnr].numargs;y++) {
           char *bar = strdup(unittest[testnr].args[y].name);
-          urldecode(bar,
+          urldecode((unsigned char *)bar,
               strlen(bar)+1,
-              bar,
+              (unsigned char *)bar,
               strlen(bar)+1,
               1
           );
 
-          if(strcmp(bar, tmp->name) == 0) {
+          if(strcmp(bar, (char *)tmp->name) == 0) {
             if(tmp->value != NULL) {
               char *foo = strdup(unittest[testnr].args[y].value);
-              urldecode(foo,
+              urldecode((unsigned char *)foo,
                 strlen(foo)+1,
-                foo,
+                (unsigned char *)foo,
                 strlen(foo)+1,
                 1
               );
-              if(strcmp(foo, tmp->value) == 0) {
+              if(strcmp(foo, (char *)tmp->value) == 0) {
                 argnr++;
               }
               free(foo);
@@ -1446,11 +1462,125 @@ void test_receive(void) {
   }
 }
 
-int client_write(char *buf, int size) {
+int file_get_contents(char *file, unsigned char **content) {
+	FILE *fp = NULL;
+	size_t bytes = 0;
+	struct stat st;
+
+	if((fp = fopen(file, "rb")) == NULL) {
+		fprintf(stderr, "cannot open file: %s", file);
+		return -1;
+	}
+
+	fstat(fileno(fp), &st);
+	bytes = (size_t)st.st_size;
+
+	if((*content = (unsigned char *)calloc(bytes+1, sizeof(char))) == NULL) {
+		fprintf(stderr, "out of memory\n");
+		fclose(fp);
+		exit(EXIT_FAILURE);
+	}
+
+	if(fread(*content, sizeof(char), bytes, fp) == -1) {
+		fprintf(stderr, "cannot read file: %s", file);
+		return -1;
+	}
+	fclose(fp);
+	return bytes;
+}
+
+
+void test_receive_binary(void) {
+  uint16_t size = 0;
+  uint8_t y = 0;
+  testnr = -1;
+
+  for(size=1;size<4096;size++) {
+    fprintf(stderr, "%s:%d: receive test #%d with buffer %d\n", __FUNCTION__, __LINE__, testnr+1, size);
+
+    memset(&clients[0], 0, sizeof(struct webserver_t));
+
+    uint32_t x = 0, len = 0, z = 0, w = 0;
+
+#ifdef WEBSERVER_ASYNC
+    struct tcp_pcb pcb;
+    clients[0].data.pcb = &pcb;
+#endif
+    clients[0].data.callback = &webserver_cb;
+    clients[0].data.step = WEBSERVER_CLIENT_READ_HEADER;
+
+    unsigned char *contents = NULL;
+    len = file_get_contents("../heisha.txt", &contents);
+
+    /*
+     * Send request in chunks
+     */
+    for(x=0;x<len;x+=size) {
+#ifdef WEBSERVER_ASYNC
+      struct pbuf buf;
+#endif
+      unsigned char *bar = NULL;
+      if(x+size > len) {
+        w = len-x;
+        bar = (unsigned char *)malloc(w+1);
+        memset(bar, 0, w+1);
+        memcpy(bar, &contents[x], w);
+      } else {
+        w = size;
+        bar = (unsigned char *)malloc(w+1);
+        memset(bar, 0, w+1);
+        memcpy(bar, &contents[x], w);
+      }
+#ifdef WEBSERVER_ASYNC
+      buf.payload = bar;
+      buf.len = w;
+      buf.next = NULL;
+
+      webserver_receive(NULL, &pcb, &buf, 0);
+#else
+      webserver_receive(&clients[0].data, (uint8_t *)bar, w);
+#endif
+      free(bar);
+    }
+
+    /* LCOV_EXCL_STOP*/
+
+    /*
+     * Check if all arguments came through
+     */
+    struct websettings_t *tmp = websettings;
+    while(tmp) {
+      if(tmp->ptr != 501776) {
+        fprintf(stderr, "%s:%d: test #%d failed\n",
+          __FUNCTION__, __LINE__, testnr+1
+        );
+        exit(-1);
+      }
+      if(memcmp(tmp->value, &contents[712], 501776) != 0) {
+        fprintf(stderr, "%s:%d: test #%d failed\n",
+          __FUNCTION__, __LINE__, testnr+1
+        );
+        exit(-1);
+      }
+      tmp = tmp->next;
+    }
+
+    while(websettings) {
+      tmp = websettings;
+      websettings = websettings->next;
+      free(tmp->name);
+      free(tmp->value);
+      free(tmp);
+    }
+    free(contents);
+  }
+}
+
+int client_write(unsigned char *buf, int size) {
   if(testnr == 0) {
     switch(argnr++) {
       case 0: {
-        if(strcmp(buf,
+        if(strcmp((char *)buf,
           "HTTP/1.1 200 OK\r\n"
           "Access-Control-Allow-Origin: *\r\n"
           "Keep-Alive: timeout=15, max=100\r\n"
@@ -1464,7 +1594,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 1: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1472,7 +1602,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 2: {
-        if(strcmp(buf, gplv3_1) != 0 || size != 286) {
+        if(strcmp((char *)buf, (char *)gplv3_1) != 0 || size != 286) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1480,7 +1610,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 3: {
-        if(strcmp(buf, gplv3_2) != 0 || size != 1158) {
+        if(strcmp((char *)buf, (char *)gplv3_2) != 0 || size != 1158) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1488,7 +1618,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 5: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1496,7 +1626,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 6: {
-        if(strcmp(buf, &gplv3_2[1158]) != 0 || size != 52) {
+        if(strcmp((char *)buf, (char *)&gplv3_2[1158]) != 0 || size != 52) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1504,7 +1634,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 7: {
-        if(strcmp(buf, gplv3_3) != 0 || size != 1392) {
+        if(strcmp((char *)buf, (char *)gplv3_3) != 0 || size != 1392) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1512,7 +1642,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 9: {
-        if(strcmp(buf, "257\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "257\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1520,7 +1650,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 10: {
-        if(strcmp(buf, &gplv3_3[MTU_SIZE - 68]) != 0 || size != 599) {
+        if(strcmp((char *)buf, (char *)&gplv3_3[MTU_SIZE - 68]) != 0 || size != 599) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1528,7 +1658,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 12: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1536,7 +1666,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 13: {
-        if(strcmp(buf, gplv3_4) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)gplv3_4) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1544,7 +1674,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 15: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1552,7 +1682,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 16: {
-        if(strcmp(buf, &gplv3_4[1444]) != 0 || size != 486) {
+        if(strcmp((char *)buf, (char *)&gplv3_4[1444]) != 0 || size != 486) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1560,7 +1690,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 17: {
-        if(strcmp(buf, gplv3_5) != 0 || size != 958) {
+        if(strcmp((char *)buf, (char *)gplv3_5) != 0 || size != 958) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1568,7 +1698,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 19: {
-        if(strcmp(buf, "496\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "496\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1576,7 +1706,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 20: {
-        if(strcmp(buf, &gplv3_5[958]) != 0 || size != 1174) {
+        if(strcmp((char *)buf, (char *)&gplv3_5[958]) != 0 || size != 1174) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1584,7 +1714,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 22: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1592,7 +1722,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 23: {
-        if(strcmp(buf, gplv3_6) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)gplv3_6) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1600,7 +1730,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 25: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1608,7 +1738,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 26: {
-        if(strcmp(buf, &gplv3_6[1444]) != 0 || size != 1316) {
+        if(strcmp((char *)buf, (char *)&gplv3_6[1444]) != 0 || size != 1316) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1616,7 +1746,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 27: {
-        if(strcmp(buf, gplv3_7) != 0 || size != 128) {
+        if(strcmp((char *)buf, (char *)gplv3_7) != 0 || size != 128) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1624,7 +1754,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 29: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1632,7 +1762,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 30: {
-        if(strcmp(buf, &gplv3_7[128]) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)&gplv3_7[128]) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1640,7 +1770,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 32: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1648,7 +1778,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 33: {
-        if(strcmp(buf, &gplv3_7[128+1444]) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)&gplv3_7[128+1444]) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1656,7 +1786,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 35: {
-        if(strcmp(buf, "4B\r\n") != 0 || size != 4) {
+        if(strcmp((char *)buf, "4B\r\n") != 0 || size != 4) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1664,7 +1794,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 36: {
-        if(strcmp(buf, &gplv3_7[128+1444+1444]) != 0 || size != 75) {
+        if(strcmp((char *)buf, (char *)&gplv3_7[128+1444+1444]) != 0 || size != 75) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1672,7 +1802,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 38: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1680,7 +1810,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 39: {
-        if(strcmp(buf, gplv3_8) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)gplv3_8) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1688,7 +1818,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 41: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1696,7 +1826,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 42: {
-        if(strcmp(buf, &gplv3_8[1444]) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)&gplv3_8[1444]) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1704,7 +1834,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 44: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1712,7 +1842,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 45: {
-        if(strcmp(buf, &gplv3_8[1444*2]) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)&gplv3_8[1444*2]) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1720,7 +1850,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 47: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1728,7 +1858,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 48: {
-        if(strcmp(buf, &gplv3_8[1444*3]) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)&gplv3_8[1444*3]) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1736,7 +1866,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 50: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1744,7 +1874,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 51: {
-        if(strcmp(buf, &gplv3_8[1444*4]) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)&gplv3_8[1444*4]) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1752,7 +1882,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 53: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1760,7 +1890,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 54: {
-        if(strcmp(buf, &gplv3_8[1444*5]) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)&gplv3_8[1444*5]) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1768,7 +1898,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 56: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1776,7 +1906,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 57: {
-        if(strcmp(buf, &gplv3_8[1444*6]) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)&gplv3_8[1444*6]) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1784,7 +1914,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 59: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1792,7 +1922,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 60: {
-        if(strcmp(buf, &gplv3_8[1444*7]) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)&gplv3_8[1444*7]) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1800,7 +1930,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 62: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1808,7 +1938,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 63: {
-        if(strcmp(buf, &gplv3_8[1444*8]) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)&gplv3_8[1444*8]) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1816,7 +1946,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 65: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1824,7 +1954,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 66: {
-        if(strcmp(buf, &gplv3_8[1444*9]) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)&gplv3_8[1444*9]) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1832,7 +1962,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 68: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1840,7 +1970,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 69: {
-        if(strcmp(buf, &gplv3_8[1444*10]) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)&gplv3_8[1444*10]) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1848,7 +1978,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 71: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1856,7 +1986,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 72: {
-        if(strcmp(buf, &gplv3_8[1444*11]) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)&gplv3_8[1444*11]) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1864,7 +1994,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 74: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1872,7 +2002,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 75: {
-        if(strcmp(buf, &gplv3_8[1444*12]) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)&gplv3_8[1444*12]) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1880,7 +2010,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 77: {
-        if(strcmp(buf, "5A4\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1888,7 +2018,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 78: {
-        if(strcmp(buf, &gplv3_8[1444*13]) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)&gplv3_8[1444*13]) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1896,7 +2026,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 80: {
-        if(strcmp(buf, "56F\r\n") != 0 || size != 5) {
+        if(strcmp((char *)buf, "56F\r\n") != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1904,7 +2034,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 81: {
-        if(strcmp(buf, &gplv3_8[1444*14]) != 0 || size != 1391) {
+        if(strcmp((char *)buf, (char *)&gplv3_8[1444*14]) != 0 || size != 1391) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1918,7 +2048,7 @@ int client_write(char *buf, int size) {
   } else if(testnr == 1) {
     switch(argnr++) {
       case 0: {
-        if(strcmp(buf,
+        if(strcmp((char *)buf,
           "HTTP/1.1 200 OK\r\n"
           "Access-Control-Allow-Origin: *\r\n"
           "Server: ESP8266\r\n"
@@ -1933,7 +2063,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 1: {
-        if(strcmp(buf, gplv3_1) != 0 || size != 286) {
+        if(strcmp((char *)buf, (char *)gplv3_1) != 0 || size != 286) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1941,7 +2071,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 2: {
-        if(strcmp(buf, gplv3_2) != 0 || size != 1158) {
+        if(strcmp((char *)buf, (char *)gplv3_2) != 0 || size != 1158) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1949,7 +2079,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 3: {
-        if(strcmp(buf, &gplv3_2[1158]) != 0 || size != 52) {
+        if(strcmp((char *)buf, (char *)&gplv3_2[1158]) != 0 || size != 52) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1957,7 +2087,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 4: {
-        if(strcmp(buf, gplv3_3) != 0 || size != 1392) {
+        if(strcmp((char *)buf, (char *)gplv3_3) != 0 || size != 1392) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1965,7 +2095,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 5: {
-        if(strcmp(buf, &gplv3_3[1392]) != 0 || size != 599) {
+        if(strcmp((char *)buf, (char *)&gplv3_3[1392]) != 0 || size != 599) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1973,7 +2103,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 6: {
-        if(strcmp(buf, gplv3_4) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)gplv3_4) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1981,7 +2111,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 7: {
-        if(strcmp(buf, &gplv3_4[1444]) != 0 || size != 486) {
+        if(strcmp((char *)buf, (char *)&gplv3_4[1444]) != 0 || size != 486) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1989,7 +2119,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 8: {
-        if(strcmp(buf, gplv3_5) != 0 || size != 958) {
+        if(strcmp((char *)buf, (char *)gplv3_5) != 0 || size != 958) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1997,7 +2127,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 9: {
-        if(strcmp(buf, &gplv3_5[958]) != 0 || size != 1174) {
+        if(strcmp((char *)buf, (char *)&gplv3_5[958]) != 0 || size != 1174) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2005,7 +2135,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 10: {
-        if(strcmp(buf, gplv3_6) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)gplv3_6) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2013,7 +2143,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 11: {
-        if(strcmp(buf, &gplv3_6[1444]) != 0 || size != 1316) {
+        if(strcmp((char *)buf, (char *)&gplv3_6[1444]) != 0 || size != 1316) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2021,7 +2151,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 12: {
-        if(strcmp(buf, gplv3_7) != 0 || size != 128) {
+        if(strcmp((char *)buf, (char *)gplv3_7) != 0 || size != 128) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2029,7 +2159,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 13: {
-        if(strcmp(buf, &gplv3_7[128]) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)&gplv3_7[128]) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2037,7 +2167,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 14: {
-        if(strcmp(buf, &gplv3_7[128+1444]) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)&gplv3_7[128+1444]) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2045,7 +2175,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 15: {
-        if(strcmp(buf, &gplv3_7[128+1444+1444]) != 0 || size != 75) {
+        if(strcmp((char *)buf, (char *)&gplv3_7[128+1444+1444]) != 0 || size != 75) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2053,7 +2183,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 16: {
-        if(strcmp(buf, gplv3_8) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)gplv3_8) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2073,7 +2203,7 @@ int client_write(char *buf, int size) {
       case 27:
       case 28:
       case 29: {
-        if(strcmp(buf, &gplv3_8[1444*(argnr-17)]) != 0 || size != 1444) {
+        if(strcmp((char *)buf, (char *)&gplv3_8[1444*(argnr-17)]) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2081,7 +2211,7 @@ int client_write(char *buf, int size) {
         }
       } break;
       case 30: {
-        if(strcmp(buf, &gplv3_8[1444*(argnr-17)]) != 0 || size != 1391) {
+        if(strcmp((char *)buf, (char *)&gplv3_8[1444*(argnr-17)]) != 0 || size != 1391) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2093,7 +2223,7 @@ int client_write(char *buf, int size) {
       } break;
     }
   } else if(testnr == 2) {
-    if(strcmp(buf,
+    if(strcmp((char *)buf,
       "HTTP/1.1 301 Moved Permanently\r\n"
       "Location: /\r\n\r\n"
       ) != 0 || size != 47) {
@@ -2110,17 +2240,17 @@ int client_write(char *buf, int size) {
 
 void test_send(void);
 
-int client_write_P(char *buf, int size) {
+int client_write_P(unsigned char *buf, int size) {
   if(testnr == 0) {
     if(argnr <= 82) {
-      if(strcmp(buf, "\r\n") != 0 || size != 2) {
+      if(strcmp((char *)buf, "\r\n") != 0 || size != 2) {
         fprintf(stderr, "%s:%d: test #%d failed\n",
           __FUNCTION__, __LINE__, testnr+1
         );
         exit(-1);
       }
     } else if(argnr == 83) {
-      if(strcmp(buf, "0\r\n\r\n") != 0 || size != 5) {
+      if(strcmp((char *)buf, "0\r\n\r\n") != 0 || size != 5) {
         fprintf(stderr, "%s:%d: test #%d failed\n",
           __FUNCTION__, __LINE__, testnr+1
         );
@@ -2136,7 +2266,7 @@ int client_write_P(char *buf, int size) {
     }
   } else if(testnr == 1) {
     if(argnr == 31) {
-       if(strcmp(buf, "\r\n\r\n") != 0 || size != 4) {
+       if(strcmp((char *)buf, "\r\n\r\n") != 0 || size != 4) {
         fprintf(stderr, "%s:%d: test #%d failed\n",
           __FUNCTION__, __LINE__, testnr+1
         );
@@ -2190,6 +2320,7 @@ void test_send(void) {
 
 int main(void) {
   test_receive();
+  test_receive_binary();
   testnr = 0;
 
   for(testnr=0;testnr<3;testnr++) {

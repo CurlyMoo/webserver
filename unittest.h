@@ -15,13 +15,15 @@
   #define ERR_OK 0
   #define TCP_WRITE_FLAG_MORE 0
   #define strncmp_P strncmp
+  #define memcpy_P memcpy
+  #define memcmp_P memcmp
   #define strcmp_P strcmp
   #define strncpy_P strncpy
   #define strstr_P strstr
   #define snprintf_P snprintf
   #define F 
-  #define PSTR 
-  #define PGM_P char *
+  #define PSTR
+  #define PGM_P unsigned char *
   #define tcp_write_P(a, b, c, d) tcp_write(a, (void *)b, c, d)
 
   void tcp_sent(struct tcp_pcb *pcb, err_t (*)(void *arg, tcp_pcb *pcb, uint16_t len));

@@ -2,7 +2,7 @@
 #define PROGMEM
 #endif
 
-static const char gplv3_1[] = 
+static const unsigned char gplv3_1[] =
 "                    GNU GENERAL PUBLIC LICENSE\n"
 "                       Version 3, 29 June 2007\n"
 "\n"
@@ -11,7 +11,7 @@ static const char gplv3_1[] =
 " of this license document, but changing it is not allowed.\n"
 "\n";
 
-static const char gplv3_2[] = 
+static const unsigned char gplv3_2[] =
 "  The licenses for most software and other practical works are designed\n"
 "to take away your freedom to share and change the works.  By contrast,\n"
 "the GNU General Public License is intended to guarantee your freedom to\n"
@@ -34,7 +34,7 @@ static const char gplv3_2[] =
 "you modify it: responsibilities to respect the freedom of others.\n"
 "\n";
 
-static const char gplv3_3[] = 
+static const unsigned char gplv3_3[] =
 "  For example, if you distribute copies of such a program, whether\n"
 "gratis or for a fee, you must pass on to the recipients the same\n"
 "freedoms that you received.  You must make sure that they, too, receive\n"
@@ -73,7 +73,7 @@ static const char gplv3_3[] =
 "modification follow.\n"
 "\n";
 
-static const char gplv3_4[] = 
+static const unsigned char gplv3_4[] =
 "                       TERMS AND CONDITIONS\n"
 "\n"
 "  0. Definitions.\n"
@@ -116,7 +116,7 @@ static const char gplv3_4[] =
 "menu, a prominent item in the list meets this criterion.\n"
 "\n";
 
-static const char gplv3_5[] = 
+static const unsigned char gplv3_5[] =
 "  1. Source Code.\n"
 "\n"
 "  The \"source code\" for a work means the preferred form of the work\n"
@@ -160,7 +160,7 @@ static const char gplv3_5[] =
 "same work.\n"
 "\n";
 
-static const char gplv3_6[] = 
+static const unsigned char gplv3_6[] =
 "  2. Basic Permissions.\n"
 "\n"
 "  All rights granted under this License are granted for the term of\n"
@@ -216,7 +216,7 @@ static const char gplv3_6[] =
 "and you may offer support or warranty protection for a fee.\n"
 "\n";
 
-static const char gplv3_7[] = 
+static const unsigned char gplv3_7[] =
 "  5. Conveying Modified Source Versions.\n"
 "\n"
 "  You may convey a work based on the Program, or the modifications to\n"
@@ -279,7 +279,7 @@ static const char gplv3_7[] =
 "    Corresponding Source from a network server at no charge.\n"
 "\n";
 
-static const char gplv3_8[] =
+static const unsigned char gplv3_8[] =
 "    c) Convey individual copies of the object code with a copy of the\n"
 "    written offer to provide the Corresponding Source.  This\n"
 "    alternative is allowed only occasionally and noncommercially, and\n"
