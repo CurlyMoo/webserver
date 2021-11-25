@@ -38,14 +38,15 @@ static uint16_t headernr = 0;
 static uint16_t argnr = 0;
 static uint16_t done = 1;
 
-struct websettings_t {
+struct webvalues_t {
   unsigned char *name;
   unsigned char *value;
   uint32_t ptr;
-  struct websettings_t *next;
+  struct webvalues_t *next;
 };
 
-static struct websettings_t *websettings = NULL;
+static struct webvalues_t *webargs = NULL;
+static struct webvalues_t *webheader = NULL;
 
 void tcp_sent(struct tcp_pcb *pcb, err_t (*)(void *arg, tcp_pcb *pcb, uint16_t len)) {
 }
@@ -89,6 +90,27 @@ struct unittest_t {
     char *value;
   } args[255];
 } unittest[] {
+  {
+    "GET",
+    "/",
+    "HTTP/1.1",
+    NULL,
+    0,
+    7,
+    {
+      { "Host", "192.168.4.1" },
+      { "Upgrade-Insecure-Requests", "1" },
+      { "Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" },
+      { "User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 15_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/39.0  Mobile/15E148 Safari/605.1.15" },
+      { "Accept-Language", "nl-NL,nl;q=0.9" },
+      { "Accept-Encoding", "gzip, deflate" },
+      { "Connection", "keep-alive" },
+    },
+    0,
+    {
+      { 0, NULL, NULL }
+    }
+  },
   {
     "POST",
     "/savesettings",
@@ -1139,7 +1161,7 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
         // int i = 0;
       // } else {
         struct arguments_t *args = (struct arguments_t *)data;
-        struct websettings_t *tmp = websettings;
+        struct webvalues_t *tmp = webargs;
 
         while(tmp) {
           if(strcmp((char *)tmp->name, (char *)args->name) == 0) {
@@ -1155,7 +1177,7 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
           tmp = tmp->next;
         }
         if(tmp == NULL) {
-          struct websettings_t *node = (struct websettings_t *)malloc(sizeof(struct websettings_t));
+          struct webvalues_t *node = (struct webvalues_t *)malloc(sizeof(struct webvalues_t));
           node->name = (unsigned char *)strdup((char *)args->name);
           node->next = NULL;
           node->ptr = 0;
@@ -1168,8 +1190,8 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
             node->value = NULL;
           }
 
-          node->next = websettings;
-          websettings = node;
+          node->next = webargs;
+          webargs = node;
         }
       // }
       if(client->readlen > client->totallen) {
@@ -1185,25 +1207,39 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
     } break;
     case WEBSERVER_CLIENT_HEADER: {
       struct arguments_t *args = (struct arguments_t *)data;
-      if(testnr > -1 && strcmp(unittest[testnr].header[headernr].name, (char *)args->name) != 0) {
-        fprintf(stderr, "%s:%d: test #%d failed, expected %s got %s\n",
-          __FUNCTION__, __LINE__, testnr+1, unittest[testnr].header[headernr].name, (char *)args->name
-        );
-        exit(-1);
+
+      struct webvalues_t *tmp = webheader;
+
+      while(tmp) {
+        if(strcmp((char *)tmp->name, (char *)args->name) == 0) {
+          if(args->value != NULL) {
+            tmp->value = (unsigned char *)realloc(tmp->value, tmp->ptr+args->len+1);
+            memcpy(&tmp->value[tmp->ptr], args->value, args->len);
+            tmp->ptr += args->len;
+            tmp->value[tmp->ptr] = 0;
+          }
+
+          break;
+        }
+        tmp = tmp->next;
       }
-      if(testnr > -1 && strlen(unittest[testnr].header[headernr].value) != args->len) {
-        fprintf(stderr, "%s:%d: test #%d failed, expected length #%ld got #%d\n",
-          __FUNCTION__, __LINE__, testnr+1, strlen(unittest[testnr].header[headernr].value), args->len
-        );
-        exit(-1);
+      if(tmp == NULL) {
+        struct webvalues_t *node = (struct webvalues_t *)malloc(sizeof(struct webvalues_t));
+        node->name = (unsigned char *)strdup((char *)args->name);
+        node->next = NULL;
+        node->ptr = 0;
+        if(args->value != NULL) {
+          node->value = (unsigned char *)malloc(args->len+1);
+          memcpy(&node->value[node->ptr], args->value, args->len);
+          node->ptr = args->len;
+          node->value[node->ptr] = 0;
+        } else {
+          node->value = NULL;
+        }
+
+        node->next = webheader;
+        webheader = node;
       }
-      if(testnr > -1 && strncmp(unittest[testnr].header[headernr].value, (char *)args->value, args->len) != 0) {
-        fprintf(stderr, "%s:%d: test #%d failed, expected %s got %s\n",
-          __FUNCTION__, __LINE__, testnr+1, unittest[testnr].header[headernr].value, (char *)args->value
-        );
-        exit(-1);
-      }
-      headernr++;
 
       return 0;
     } break;
@@ -1277,10 +1313,6 @@ void test_receive(void) {
 
       memset(&clients[0], 0, sizeof(struct webserver_t));
 
-#ifdef WEBSERVER_ASYNC
-      struct tcp_pcb pcb;
-      clients[0].data.pcb = &pcb;
-#endif
       clients[0].data.callback = &webserver_cb;
       clients[0].data.step = WEBSERVER_CLIENT_READ_HEADER;
 
@@ -1364,9 +1396,6 @@ void test_receive(void) {
        * Send request in chunks
        */
       for(x=0;x<len;x+=size) {
-#ifdef WEBSERVER_ASYNC
-        struct pbuf buf;
-#endif
         char *bar = NULL;
         if(x+size > len) {
           bar = (char *)malloc((strlen(out)-x)+1);
@@ -1377,15 +1406,8 @@ void test_receive(void) {
           memset(bar, 0, size+1);
           memcpy(bar, &out[x], size);
         }
-#ifdef WEBSERVER_ASYNC
-        buf.payload = bar;
-        buf.len = strlen(bar);
-        buf.next = NULL;
+        webserver_sync_receive(&clients[0].data, (uint8_t *)bar, strlen(bar));
 
-        webserver_receive(NULL, &pcb, &buf, 0);
-#else
-        webserver_receive(&clients[0].data, (uint8_t *)bar, strlen(bar));
-#endif
         free(bar);
       }
 
@@ -1399,7 +1421,7 @@ void test_receive(void) {
       /*
        * Check if all arguments came through
        */
-      struct websettings_t *tmp = websettings;
+      struct webvalues_t *tmp = webargs;
       while(tmp) {
         for(y=0;y<unittest[testnr].numargs;y++) {
           char *bar = strdup(unittest[testnr].args[y].name);
@@ -1434,9 +1456,34 @@ void test_receive(void) {
         tmp = tmp->next;
       }
 
-      while(websettings) {
-        tmp = websettings;
-        websettings = websettings->next;
+      tmp = webheader;
+      while(tmp) {
+        for(y=0;y<unittest[testnr].numheader;y++) {
+          if(strcmp(unittest[testnr].header[y].name, (char *)tmp->name) == 0) {
+            if(tmp->value != NULL) {
+              if(strcmp(unittest[testnr].header[y].value, (char *)tmp->value) == 0) {
+                headernr++;
+              }
+              break;
+            } else {
+              headernr++;
+            }
+          }
+        }
+        tmp = tmp->next;
+      }
+
+      while(webargs) {
+        tmp = webargs;
+        webargs = webargs->next;
+        free(tmp->name);
+        free(tmp->value);
+        free(tmp);
+      }
+
+      while(webheader) {
+        tmp = webheader;
+        webheader = webheader->next;
         free(tmp->name);
         free(tmp->value);
         free(tmp);
@@ -1481,7 +1528,7 @@ int file_get_contents(char *file, unsigned char **content) {
 		exit(EXIT_FAILURE);
 	}
 
-	if(fread(*content, sizeof(char), bytes, fp) == -1) {
+	if(fread(*content, sizeof(unsigned char), bytes, fp) == -1) {
 		fprintf(stderr, "cannot read file: %s", file);
 		return -1;
 	}
@@ -1492,7 +1539,6 @@ int file_get_contents(char *file, unsigned char **content) {
 
 void test_receive_binary(void) {
   uint16_t size = 0;
-  uint8_t y = 0;
   testnr = -1;
 
   for(size=1;size<4096;size++) {
@@ -1500,12 +1546,8 @@ void test_receive_binary(void) {
 
     memset(&clients[0], 0, sizeof(struct webserver_t));
 
-    uint32_t x = 0, len = 0, z = 0, w = 0;
+    uint32_t x = 0, len = 0, w = 0;
 
-#ifdef WEBSERVER_ASYNC
-    struct tcp_pcb pcb;
-    clients[0].data.pcb = &pcb;
-#endif
     clients[0].data.callback = &webserver_cb;
     clients[0].data.step = WEBSERVER_CLIENT_READ_HEADER;
 
@@ -1516,9 +1558,6 @@ void test_receive_binary(void) {
      * Send request in chunks
      */
     for(x=0;x<len;x+=size) {
-#ifdef WEBSERVER_ASYNC
-      struct pbuf buf;
-#endif
       unsigned char *bar = NULL;
       if(x+size > len) {
         w = len-x;
@@ -1531,15 +1570,8 @@ void test_receive_binary(void) {
         memset(bar, 0, w+1);
         memcpy(bar, &contents[x], w);
       }
-#ifdef WEBSERVER_ASYNC
-      buf.payload = bar;
-      buf.len = w;
-      buf.next = NULL;
+      webserver_sync_receive(&clients[0].data, (uint8_t *)bar, w);
 
-      webserver_receive(NULL, &pcb, &buf, 0);
-#else
-      webserver_receive(&clients[0].data, (uint8_t *)bar, w);
-#endif
       free(bar);
     }
 
@@ -1548,7 +1580,7 @@ void test_receive_binary(void) {
     /*
      * Check if all arguments came through
      */
-    struct websettings_t *tmp = websettings;
+    struct webvalues_t *tmp = webargs;
     while(tmp) {
       if(tmp->ptr != 501776) {
         fprintf(stderr, "%s:%d: test #%d failed\n",
@@ -1565,9 +1597,9 @@ void test_receive_binary(void) {
       tmp = tmp->next;
     }
 
-    while(websettings) {
-      tmp = websettings;
-      websettings = websettings->next;
+    while(webargs) {
+      tmp = webargs;
+      webargs = webargs->next;
       free(tmp->name);
       free(tmp->value);
       free(tmp);
@@ -2240,7 +2272,7 @@ int client_write(unsigned char *buf, int size) {
 
 void test_send(void);
 
-int client_write_P(unsigned char *buf, int size) {
+int client_write_P(const char *buf, int size) {
   if(testnr == 0) {
     if(argnr <= 82) {
       if(strcmp((char *)buf, "\r\n") != 0 || size != 2) {
@@ -2302,10 +2334,6 @@ void test_send(void) {
 
   webserver_reset_client(&clients[1].data);
 
-#ifdef WEBSERVER_ASYNC
-  struct tcp_pcb pcb;
-  clients[1].data.pcb = &pcb;
-#endif
   clients[1].data.callback = &webserver_cb;
   clients[1].data.step = WEBSERVER_CLIENT_CONNECTING;
 
