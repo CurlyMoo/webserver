@@ -1604,6 +1604,14 @@ void test_receive_binary(void) {
       free(tmp->value);
       free(tmp);
     }
+
+    while(webheader) {
+      tmp = webheader;
+      webheader = webheader->next;
+      free(tmp->name);
+      free(tmp->value);
+      free(tmp);
+    }
     free(contents);
   }
 }

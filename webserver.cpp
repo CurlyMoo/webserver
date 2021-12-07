@@ -786,6 +786,10 @@ int http_parse_multipart_body(struct webserver_t *client, unsigned char *buf, ui
                 client->buffer[pos+2] == '\r' && client->buffer[pos+3] == '\n') {
                 client->readlen += ((pos+4)-(pos1));
                 if(client->readlen == client->totallen) {
+                  if(client->boundary != NULL) {
+                    free(client->boundary);
+                    client->boundary = NULL;
+                  }
                   return 0;
                 } else {
                   // Error, content length does not match end boundary
@@ -1170,6 +1174,7 @@ static int webserver_process_send(struct webserver_t *client) {
   struct sendlist_t *tmp = client->sendlist;
   uint16_t cpylen = client->totallen, i = 0, cpyptr = client->ptr;
   unsigned char cpy[client->totallen+1];
+  memset(&cpy, 0, client->totallen+1);
 
   if(client->chunked == 1) {
     while(tmp != NULL && cpylen > 0) {
@@ -1288,6 +1293,7 @@ static int webserver_process_send(struct webserver_t *client) {
         if(tmp->type == 0) {
           free(tmp->ptr);
         }
+        free(tmp);
         client->ptr = 0;
       } else {
         if(client->sendlist->type == 1) {
@@ -1675,6 +1681,7 @@ void webserver_reset_client(struct webserver_t *client) {
   }
   if(client->boundary != NULL) {
     free(client->boundary);
+    client->boundary = NULL;
   }
 
   client->sendlist = NULL;
