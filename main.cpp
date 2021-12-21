@@ -408,6 +408,39 @@ struct unittest_t {
     "POST",
     "/",
     "HTTP/1.1",
+    "--------------------------187133423340772782571274044530",
+    1,
+    11,
+    {
+      { "Host", "10.0.0.212" },
+      { "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:93.0) Gecko/20100101 Firefox/93.0" },
+      { "Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8" },
+      { "Accept-Language", "nl,en-US;q=0.7,en;q=0.3" },
+      { "Accept-Encoding", "gzip, deflate" },
+      { "Content-Type", "multipart/form-data; boundary=--------------------------187133423340772782571274044530" },
+      { "Content-Length", "294" },
+      { "DNT", "1" },
+      { "Connection", "keep-alive" },
+      { "Cookie", "io=PlntMb-PoXqz-x2_AAAG" },
+      { "Upgrade-Insecure-Requests", "1" }
+    },
+    1,
+    {
+      { 0, "rules",
+        "on ds18b20#28610695f0013c42 then\r\n"
+        "  #foo = ds18b20#28610695f0013c42;\r\n"
+        "end\r\n"
+        "\r\n"
+        "on ?setpoint then\r\n"
+        "  #bar = ?setpoint;\r\n"
+        "end\n\r"
+      }
+    }
+  },
+  {
+    "POST",
+    "/",
+    "HTTP/1.1",
     NULL,
     0,
     11,
@@ -1300,6 +1333,59 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
     } break;
   }
   return 0;
+}
+
+void test_edge_case1(void) {
+  fprintf(stderr, "%s:%d: receive test\n", __FUNCTION__, __LINE__);
+
+  testnr = -1;
+
+  memset(&clients[0], 0, sizeof(struct webserver_t));
+
+  clients[0].data.callback = &webserver_cb;
+  clients[0].data.step = WEBSERVER_CLIENT_READ_HEADER;
+
+  char foo[] =
+    "POST /saverules HTTP/1.1\r\n"
+    "Host: 10.0.0.74\r\n"
+    "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0\r\n"
+    "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\n"
+    "Accept-Language: nl,en-US;q=0.7,en;q=0.3\r\n"
+    "Accept-Encoding: gzip, deflate\r\n"
+    "Referer: http://10.0.0.74/rules\r\n"
+    "Content-Type: multipart/form-data; boundary=---------------------------354617515641648399072235817744\r\n"
+    "Content-Length: 294\r\n"
+    "Origin: http://10.0.0.74\r\n"
+    "DNT: 1\r\n"
+    "Connection: keep-alive\r\n"
+    "Upgrade-Insecure-\r\n";
+
+  webserver_sync_receive(&clients[0].data, (uint8_t *)foo, strlen(foo));
+
+  char bar[] =
+    "Requests: 1\r\n"
+    "\r\n"
+    "-----------------------------354617515641648399072235817744\r\n"
+    "Content-Disposition: form-data; name=\"rules\"\r\n"
+    "\r\n"
+    "on ds18b20#28610695f0013c42 then\r\n"
+    "  #foo = ds18b20#28610695f0013c42;\r\n"
+    "end\r\n"
+    "\r\n"
+    "on ?setpoint then\r\n"
+    "  #bar = ?setpoint;\r\n"
+    "end\r\n"
+    "-----------------------------354617515641648399072235817744--\r\n"
+    "\r\n";
+
+  webserver_sync_receive(&clients[0].data, (uint8_t *)bar, strlen(bar));
+
+  if(clients[0].data.step != WEBSERVER_CLIENT_WRITE) {
+    fprintf(stderr, "%s:%d: test #%d failed, expected %d got %d\n",
+      __FUNCTION__, __LINE__, testnr+1, WEBSERVER_CLIENT_WRITE, clients[0].data.step
+    );
+    exit(-1);
+  }
 }
 
 void test_receive(void) {
@@ -2356,6 +2442,7 @@ void test_send(void) {
 
 int main(void) {
   test_receive();
+  test_edge_case1();
   test_receive_binary();
   testnr = 0;
 

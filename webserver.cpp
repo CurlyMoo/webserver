@@ -986,6 +986,14 @@ int http_parse_multipart_body(struct webserver_t *client, unsigned char *buf, ui
             client->ptr -= (pos-(vlen+1));
             client->substep = 0;
           } else if(client->ptr == WEBSERVER_BUFFER_SIZE) {
+            uint8_t ending = 0;
+            /*
+             * Double check that the CR / LN don't below
+             * to the boundary delimiter.
+             */
+            if(strncmp((char *)&client->buffer[client->ptr-2], "\r\n", 2) == 0) {
+              ending = 2;
+            }
             if(client->substep == 8) {
               client->substep = 7;
             }
@@ -998,7 +1006,7 @@ int http_parse_multipart_body(struct webserver_t *client, unsigned char *buf, ui
 
               args.name = &client->buffer[0];
               args.value = &client->buffer[pos+1];
-              args.len = WEBSERVER_BUFFER_SIZE-(pos+1);
+              args.len = (WEBSERVER_BUFFER_SIZE-ending)-(pos+1);
 
               if(client->callback != NULL) {
                 uint8_t ret = client->callback(client, &args);
@@ -1007,8 +1015,12 @@ int http_parse_multipart_body(struct webserver_t *client, unsigned char *buf, ui
                 }
               }
               client->buffer[pos] = '=';
-              client->readlen += (client->ptr-(pos+1));
-              client->ptr = pos+1;
+              if(ending == 2) {
+                client->buffer[pos+1] = '\r';
+                client->buffer[pos+2] = '\n';
+              }
+              client->readlen += ((client->ptr-(pos+1))-ending);
+              client->ptr = pos+1+ending;
             } else {
               // error
               return -1;
@@ -1583,7 +1595,6 @@ err_t webserver_async_receive(void *arg, tcp_pcb *pcb, struct pbuf *data, err_t 
   if(data == NULL) {
     for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
       if(clients[i].data.pcb == pcb) {
-        printf("%d\n", __LINE__);
         webserver_client_close(&clients[i].data);
       }
     }
