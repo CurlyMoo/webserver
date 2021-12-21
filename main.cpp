@@ -1386,6 +1386,23 @@ void test_edge_case1(void) {
     );
     exit(-1);
   }
+
+  struct webvalues_t *tmp = NULL;
+  while(webargs) {
+    tmp = webargs;
+    webargs = webargs->next;
+    free(tmp->name);
+    free(tmp->value);
+    free(tmp);
+  }
+
+  while(webheader) {
+    tmp = webheader;
+    webheader = webheader->next;
+    free(tmp->name);
+    free(tmp->value);
+    free(tmp);
+  }
 }
 
 void test_receive(void) {
