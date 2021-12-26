@@ -2448,11 +2448,13 @@ void test_send(void) {
   clients[1].data.callback = &webserver_cb;
   clients[1].data.step = WEBSERVER_CLIENT_CONNECTING;
 
-  clients[1].data.client.write = client_write;
-  clients[1].data.client.write_P = client_write_P;
-  clients[1].data.client.available = client_available;
-  clients[1].data.client.connected = client_connected;
-  clients[1].data.client.read = client_read;
+  clients[1].data.client = new WiFiClient;
+  memset(clients[1].data.client, 0, sizeof(struct WiFiClient));
+  clients[1].data.client->write = client_write;
+  clients[1].data.client->write_P = client_write_P;
+  clients[1].data.client->available = client_available;
+  clients[1].data.client->connected = client_connected;
+  clients[1].data.client->read = client_read;
 
   webserver_cb(&clients[1].data, NULL);
 }
