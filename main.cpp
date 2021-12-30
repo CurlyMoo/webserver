@@ -1631,7 +1631,7 @@ int file_get_contents(char *file, unsigned char **content) {
 		exit(EXIT_FAILURE);
 	}
 
-	if(fread(*content, sizeof(unsigned char), bytes, fp) == -1) {
+	if(fread(*content, sizeof(unsigned char), bytes, fp) != bytes) {
 		fprintf(stderr, "cannot read file: %s", file);
 		return -1;
 	}
@@ -2479,6 +2479,7 @@ int main(void) {
     while(done) {
       webserver_loop();
     }
+    delete clients[1].data.client;
   }
   return 0;
 }
