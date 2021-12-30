@@ -1183,10 +1183,22 @@ static uint16_t webserver_create_header(struct webserver_t *client, uint16_t cod
 }
 
 static int webserver_process_send(struct webserver_t *client) {
-  struct sendlist_t *tmp = client->sendlist;
+  struct sendlist_t *tmp = NULL;
   uint16_t cpylen = client->totallen, i = 0, cpyptr = client->ptr;
   unsigned char cpy[client->totallen+1];
   memset(&cpy, 0, client->totallen+1);
+
+#if WEBSERVER_MAX_SENDLIST == 0
+  tmp = client->sendlist;
+#else
+  uint8_t x = 0, y = 0;
+  for(x=0;x<WEBSERVER_MAX_SENDLIST;x++) {
+    if(client->sendlist[x].ptr != NULL) {
+      tmp = &client->sendlist[x];
+      break;
+    }
+  }
+#endif
 
   if(client->chunked == 1) {
     while(tmp != NULL && cpylen > 0) {
@@ -1194,7 +1206,18 @@ static int webserver_process_send(struct webserver_t *client) {
         if(cpylen >= tmp->size) {
           cpyptr += tmp->size;
           cpylen -= tmp->size;
+#if WEBSERVER_MAX_SENDLIST == 0
           tmp = tmp->next;
+#else
+          tmp = NULL;
+          for(y=x+1;y<WEBSERVER_MAX_SENDLIST;y++) {
+            if(client->sendlist[y].ptr != NULL) {
+              tmp = &client->sendlist[y];
+              x = y;
+              break;
+            }
+          }
+#endif
           cpyptr = 0;
         } else {
           cpyptr += cpylen;
@@ -1202,7 +1225,18 @@ static int webserver_process_send(struct webserver_t *client) {
         }
       } else if(cpyptr+cpylen >= tmp->size) {
         cpylen -= (tmp->size-cpyptr);
-        tmp = tmp->next;
+#if WEBSERVER_MAX_SENDLIST == 0
+          tmp = tmp->next;
+#else
+          tmp = NULL;
+          for(y=x+1;y<WEBSERVER_MAX_SENDLIST;y++) {
+            if(client->sendlist[y].ptr != NULL) {
+              tmp = &client->sendlist[y];
+              x = y;
+              break;
+            }
+          }
+#endif
         cpyptr = 0;
       } else {
         cpyptr += cpylen;
@@ -1223,42 +1257,66 @@ static int webserver_process_send(struct webserver_t *client) {
     i += n;
   }
 
-  if(client->sendlist != NULL) {
-    while(client->sendlist != NULL && client->totallen > 0) {
+#if WEBSERVER_MAX_SENDLIST == 0
+  tmp = client->sendlist;
+#else
+  x = 0, y = 0;
+  for(x=0;x<WEBSERVER_MAX_SENDLIST;x++) {
+    if(client->sendlist[x].ptr != NULL) {
+      tmp = &client->sendlist[x];
+      break;
+    }
+  }
+#endif
+  if(tmp != NULL) {
+    while(tmp != NULL && client->totallen > 0) {
       if(client->ptr == 0) {
-        if(client->totallen >= client->sendlist->size) {
-          if(client->sendlist->type == 1) {
-            memcpy_P(cpy, &((PGM_P)client->sendlist->ptr)[client->ptr], client->sendlist->size);
+        if(client->totallen >= tmp->size) {
+          if(tmp->type == 1) {
+            memcpy_P(cpy, &((PGM_P)tmp->ptr)[client->ptr], tmp->size);
             if(client->async == 1) {
-              tcp_write(client->pcb, cpy, client->sendlist->size, TCP_WRITE_FLAG_MORE);
+              tcp_write(client->pcb, cpy, tmp->size, TCP_WRITE_FLAG_MORE);
             } else {
-              if(client->client->write(cpy, client->sendlist->size) > 0) {
+              if(client->client->write(cpy, tmp->size) > 0) {
                 client->lastseen = millis();
               }
             }
           } else {
             if(client->async == 1) {
-              tcp_write(client->pcb, &((unsigned char *)client->sendlist->ptr)[client->ptr], client->sendlist->size, TCP_WRITE_FLAG_MORE);
+              tcp_write(client->pcb, &((unsigned char *)tmp->ptr)[client->ptr], tmp->size, TCP_WRITE_FLAG_MORE);
             } else {
-              if(client->client->write(&((unsigned char *)client->sendlist->ptr)[client->ptr], client->sendlist->size) > 0) {
+              if(client->client->write(&((unsigned char *)tmp->ptr)[client->ptr], tmp->size) > 0) {
                 client->lastseen = millis();
               }
             }
           }
-          i += client->sendlist->size;
-          client->ptr += client->sendlist->size;
-          client->totallen -= client->sendlist->size;
+          i += tmp->size;
+          client->ptr += tmp->size;
+          client->totallen -= tmp->size;
 
-          tmp = client->sendlist;
-          client->sendlist = client->sendlist->next;
           if(tmp->type == 0) {
             free(tmp->ptr);
           }
+
+          tmp->ptr = NULL;
+#if WEBSERVER_MAX_SENDLIST == 0
           free(tmp);
+          client->sendlist = client->sendlist->next;
+          tmp = client->sendlist;
+#else
+          tmp = NULL;
+          for(y=x+1;y<WEBSERVER_MAX_SENDLIST;y++) {
+            if(client->sendlist[y].ptr != NULL) {
+              tmp = &client->sendlist[y];
+              x = y;
+              break;
+            }
+          }
+#endif
           client->ptr = 0;
         } else {
-          if(client->sendlist->type == 1) {
-            memcpy_P(cpy, &((PGM_P)client->sendlist->ptr)[client->ptr], client->totallen);
+          if(tmp->type == 1) {
+            memcpy_P(cpy, &((PGM_P)tmp->ptr)[client->ptr], client->totallen);
             if(client->async == 1) {
               tcp_write(client->pcb, cpy, client->totallen, TCP_WRITE_FLAG_MORE);
             } else {
@@ -1268,9 +1326,9 @@ static int webserver_process_send(struct webserver_t *client) {
             }
           } else {
             if(client->async == 1) {
-              tcp_write(client->pcb, &((unsigned char *)client->sendlist->ptr)[client->ptr], client->totallen, TCP_WRITE_FLAG_MORE);
+              tcp_write(client->pcb, &((unsigned char *)tmp->ptr)[client->ptr], client->totallen, TCP_WRITE_FLAG_MORE);
             } else {
-              if(client->client->write(&((unsigned char *)client->sendlist->ptr)[client->ptr], client->totallen) > 0) {
+              if(client->client->write(&((unsigned char *)tmp->ptr)[client->ptr], client->totallen) > 0) {
                 client->lastseen = millis();
               }
             }
@@ -1279,37 +1337,51 @@ static int webserver_process_send(struct webserver_t *client) {
           client->ptr += client->totallen;
           client->totallen = 0;
         }
-      } else if(client->ptr+client->totallen >= client->sendlist->size) {
-        if(client->sendlist->type == 1) {
-          memcpy_P(cpy, &((PGM_P)client->sendlist->ptr)[client->ptr], (client->sendlist->size-client->ptr));
+      } else if(client->ptr+client->totallen >= tmp->size) {
+        if(tmp->type == 1) {
+          memcpy_P(cpy, &((PGM_P)tmp->ptr)[client->ptr], (tmp->size-client->ptr));
           if(client->async == 1) {
-            tcp_write(client->pcb, cpy, (client->sendlist->size-client->ptr), TCP_WRITE_FLAG_MORE);
+            tcp_write(client->pcb, cpy, (tmp->size-client->ptr), TCP_WRITE_FLAG_MORE);
           } else {
-            if(client->client->write(cpy, (client->sendlist->size-client->ptr)) > 0) {
+            if(client->client->write(cpy, (tmp->size-client->ptr)) > 0) {
               client->lastseen = millis();
             }
           }
         } else {
           if(client->async == 1) {
-            tcp_write(client->pcb, &((unsigned char *)client->sendlist->ptr)[client->ptr], (client->sendlist->size-client->ptr), TCP_WRITE_FLAG_MORE);
+            tcp_write(client->pcb, &((unsigned char *)tmp->ptr)[client->ptr], (tmp->size-client->ptr), TCP_WRITE_FLAG_MORE);
           } else {
-            if(client->client->write(&((unsigned char *)client->sendlist->ptr)[client->ptr], (client->sendlist->size-client->ptr)) > 0) {
+            if(client->client->write(&((unsigned char *)tmp->ptr)[client->ptr], (tmp->size-client->ptr)) > 0) {
               client->lastseen = millis();
             }
           }
         }
-        i += (client->sendlist->size-client->ptr);
-        client->totallen -= (client->sendlist->size-client->ptr);
-        tmp = client->sendlist;
-        client->sendlist = client->sendlist->next;
+        i += (tmp->size-client->ptr);
+        client->totallen -= (tmp->size-client->ptr);
+
         if(tmp->type == 0) {
           free(tmp->ptr);
         }
+
+        tmp->ptr = NULL;
+#if WEBSERVER_MAX_SENDLIST == 0
         free(tmp);
+        client->sendlist = client->sendlist->next;
+        tmp = client->sendlist;
+#else
+        tmp = NULL;
+        for(y=x+1;y<WEBSERVER_MAX_SENDLIST;y++) {
+          if(client->sendlist[y].ptr != NULL) {
+            tmp = &client->sendlist[y];
+            x = y;
+            break;
+          }
+        }
+#endif
         client->ptr = 0;
       } else {
-        if(client->sendlist->type == 1) {
-          memcpy_P(cpy, &((PGM_P)client->sendlist->ptr)[client->ptr], client->totallen);
+        if(tmp->type == 1) {
+          memcpy_P(cpy, &((PGM_P)tmp->ptr)[client->ptr], client->totallen);
           if(client->async == 1) {
             tcp_write(client->pcb, cpy, client->totallen, TCP_WRITE_FLAG_MORE);
           } else {
@@ -1319,9 +1391,9 @@ static int webserver_process_send(struct webserver_t *client) {
           }
         } else {
           if(client->async == 1) {
-            tcp_write(client->pcb, &((unsigned char *)client->sendlist->ptr)[client->ptr], client->totallen, TCP_WRITE_FLAG_MORE);
+            tcp_write(client->pcb, &((unsigned char *)tmp->ptr)[client->ptr], client->totallen, TCP_WRITE_FLAG_MORE);
           } else {
-            if(client->client->write(&((unsigned char *)client->sendlist->ptr)[client->ptr], client->totallen) > 0) {
+            if(client->client->write(&((unsigned char *)tmp->ptr)[client->ptr], client->totallen) > 0) {
               client->lastseen = millis();
             }
           }
@@ -1341,7 +1413,7 @@ static int webserver_process_send(struct webserver_t *client) {
     }
   }
 
-  if(client->sendlist == NULL) {
+  if(tmp == NULL) {
     client->content++;
     client->step = WEBSERVER_CLIENT_WRITE;
     if(client->callback(client, NULL) == -1) {
@@ -1349,7 +1421,18 @@ static int webserver_process_send(struct webserver_t *client) {
     } else {
       client->step = WEBSERVER_CLIENT_SENDING;
     }
-    if(client->sendlist == NULL) {
+
+#if WEBSERVER_MAX_SENDLIST == 0
+    tmp = client->sendlist;
+#else
+    for(x=0;x<WEBSERVER_MAX_SENDLIST;x++) {
+      if(client->sendlist[x].ptr != NULL) {
+        tmp = &client->sendlist[x];
+        break;
+      }
+    }
+#endif
+    if(tmp == NULL) {
       if(client->chunked == 1) {
         if(client->async == 1) {
           tcp_write_P(client->pcb, PSTR("0\r\n\r\n"), 5, 0);
@@ -1383,20 +1466,43 @@ static int webserver_process_send(struct webserver_t *client) {
 }
 
 void webserver_send_content_P(struct webserver_t *client, PGM_P buf, uint16_t size) {
-  struct sendlist_t *node = (struct sendlist_t *)malloc(sizeof(struct sendlist_t));
+  struct sendlist_t *node = NULL;
+
+#if WEBSERVER_MAX_SENDLIST == 0
+  node = (struct sendlist_t *)malloc(sizeof(struct sendlist_t));
   /*LCOV_EXCL_START*/
   if(node == NULL) {
-#ifdef ESP8266
+  #ifdef ESP8266
     Serial.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
     ESP.restart();
     exit(-1);
-#endif
+  #endif
   }
+#else
+  uint8_t i = 0;
+  for(i=0;i<WEBSERVER_MAX_SENDLIST;i++) {
+    if(client->sendlist[i].ptr == NULL) {
+      node = &client->sendlist[i];
+      break;
+    }
+  }
+  if(node == NULL) {
+  #ifdef ESP8266
+    Serial.printf("Sendlist queue is full\n");
+  #else
+    printf("Sendlist queue is full\n");
+  #endif
+    return;
+  }
+#endif
+
   /*LCOV_EXCL_STOP*/
   memset(node, 0, sizeof(struct sendlist_t));
   node->ptr = (void *)buf;
   node->size = size;
   node->type = 1;
+
+#if WEBSERVER_MAX_SENDLIST == 0
   if(client->sendlist == NULL) {
     client->sendlist = node;
     client->sendlist_head = node;
@@ -1404,23 +1510,45 @@ void webserver_send_content_P(struct webserver_t *client, PGM_P buf, uint16_t si
     client->sendlist_head->next = node;
     client->sendlist_head = node;
   }
+#endif
 }
 
 void webserver_send_content(struct webserver_t *client, char *buf, uint16_t size) {
-  struct sendlist_t *node = (struct sendlist_t *)malloc(sizeof(struct sendlist_t));
+  struct sendlist_t *node = NULL;
+
+#if WEBSERVER_MAX_SENDLIST == 0
+  node = (struct sendlist_t *)malloc(sizeof(struct sendlist_t));
   /*LCOV_EXCL_START*/
   if(node == NULL) {
-#ifdef ESP8266
+  #ifdef ESP8266
     Serial.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
     ESP.restart();
     exit(-1);
-#endif
+  #endif
   }
-  /*LCOV_EXCL_STOP*/
+#else
+  uint8_t i = 0;
+  for(i=0;i<WEBSERVER_MAX_SENDLIST;i++) {
+    if(client->sendlist[i].ptr == NULL) {
+      node = &client->sendlist[i];
+      break;
+    }
+  }
+  if(node == NULL) {
+  #ifdef ESP8266
+    Serial.printf("Sendlist queue is full\n");
+  #else
+    printf("Sendlist queue is full\n");
+  #endif
+    return;
+  }
+#endif
   memset(node, 0, sizeof(struct sendlist_t));
   node->ptr = strdup(buf);
   node->size = size;
   node->type = 0;
+
+#if WEBSERVER_MAX_SENDLIST == 0
   if(client->sendlist == NULL) {
     client->sendlist = node;
     client->sendlist_head = node;
@@ -1428,6 +1556,7 @@ void webserver_send_content(struct webserver_t *client, char *buf, uint16_t size
     client->sendlist_head->next = node;
     client->sendlist_head = node;
   }
+#endif
 }
 
 int8_t webserver_send(struct webserver_t *client, uint16_t code, char *mimetype, uint16_t data_len) {
@@ -1666,7 +1795,7 @@ void webserver_reset_client(struct webserver_t *client) {
     tcp_close(client->pcb);
     client->pcb = NULL;
   }
-  if(client->active == 1) {
+  if(client->client != NULL) {
     client->client->stop();
     delete client->client;
     client->client = NULL;
@@ -1678,7 +1807,6 @@ void webserver_reset_client(struct webserver_t *client) {
   client->method = 0;
   client->async = 0;
   client->totallen = 0;
-  client->active = 0;
   client->step = 0;
   client->substep = 0;
   client->chunked = 0;
@@ -1689,6 +1817,7 @@ void webserver_reset_client(struct webserver_t *client) {
   client->userdata = NULL;
 
   struct sendlist_t *tmp = NULL;
+#if WEBSERVER_MAX_SENDLIST == 0
   while(client->sendlist) {
     tmp = client->sendlist;
     client->sendlist = client->sendlist->next;
@@ -1697,13 +1826,26 @@ void webserver_reset_client(struct webserver_t *client) {
     }
     free(tmp);
   }
+#else
+  uint8_t i = 0;
+  for(i=0;i<WEBSERVER_MAX_SENDLIST;i++) {
+    tmp = &client->sendlist[i];
+    if(tmp->type == 0) {
+      free(tmp->ptr);
+    }
+    tmp->ptr = NULL;
+    memset(tmp, 0, sizeof(struct sendlist_t));
+  }
+#endif
   if(client->boundary != NULL) {
     free(client->boundary);
     client->boundary = NULL;
   }
 
+#if WEBSERVER_MAX_SENDLIST == 0
   client->sendlist = NULL;
   client->sendlist_head = NULL;
+#endif
   client->boundary = NULL;
   memset(&client->buffer, 0, WEBSERVER_BUFFER_SIZE);
 }
@@ -1832,13 +1974,12 @@ void webserver_loop(void) {
 #if defined(ESP8266)
   while(sync_server.hasClient()) {
     for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
-      if(clients[i].data.active == 0) {
+      if(clients[i].data.client == NULL) {
         clients[i].data.client = new WiFiClient(sync_server.available());
         if(clients[i].data.client) {
           webserver_reset_client(&clients[i].data);
 
           clients[i].data.async = 0;
-          clients[i].data.active = 1;
           clients[i].data.lastseen = millis();
           clients[i].data.step = WEBSERVER_CLIENT_CONNECTING;
 

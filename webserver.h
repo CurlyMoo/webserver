@@ -25,6 +25,10 @@
   #define WEBSERVER_MAX_CLIENTS 5
 #endif
 
+#ifndef WEBSERVER_MAX_SENDLIST
+  #define WEBSERVER_MAX_SENDLIST 10
+#endif
+
 #ifndef WEBSERVER_CLIENT_TIMEOUT
   #define WEBSERVER_CLIENT_TIMEOUT 5000
 #endif
@@ -77,7 +81,9 @@ typedef struct sendlist_t {
   void *ptr;
   uint16_t type:1;
   uint16_t size:15;
+#if WEBSERVER_MAX_SENDLIST == 0
   struct sendlist_t *next;
+#endif
 } sendlist_t;
 
 #ifndef ESP8266
@@ -95,7 +101,6 @@ typedef struct webserver_t {
   tcp_pcb *pcb;
   WiFiClient *client;
   unsigned long lastseen;
-  uint8_t active:1;
   uint8_t reqtype:1;
   uint8_t async:1;
   uint8_t method:1;
@@ -107,8 +112,12 @@ typedef struct webserver_t {
   uint32_t readlen;
   uint16_t content;
   uint8_t route;
+#if WEBSERVER_MAX_SENDLIST == 0
   struct sendlist_t *sendlist;
   struct sendlist_t *sendlist_head;
+#else
+  struct sendlist_t sendlist[WEBSERVER_MAX_SENDLIST];
+#endif
   webserver_cb_t *callback;
   unsigned char buffer[WEBSERVER_BUFFER_SIZE];
   char *boundary;

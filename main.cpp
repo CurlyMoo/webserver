@@ -2480,4 +2480,5 @@ int main(void) {
       webserver_loop();
     }
   }
+  return 0;
 }
