@@ -1648,7 +1648,7 @@ void webserver_send_content(struct webserver_t *client, char *buf, uint16_t size
 #endif
   memset(node, 0, sizeof(struct sendlist_t));
 #if WEBSERVER_SENDLIST_BUFSIZE
-  strncpy((char *)node->data.fixed, buf, WEBSERVER_SENDLIST_BUFSIZE);
+  strncpy((char *)node->data.fixed, buf, WEBSERVER_SENDLIST_BUFSIZE-1);
 #else
   node->data.ptr = strdup(buf);
 #endif

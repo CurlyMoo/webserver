@@ -1412,7 +1412,7 @@ void test_receive(void) {
 
   while(testnr < nrtests) {
     for(size=1;size<4096;size++) {
-      fprintf(stderr, "%s:%d: receive test #%d with buffer %d\n", __FUNCTION__, __LINE__, testnr+1, size);
+      fprintf(stderr, "%s:%d: receive test #%d with buffer %d\r", __FUNCTION__, __LINE__, testnr+1, size);
 
       memset(&clients[0], 0, sizeof(struct webserver_t));
 
@@ -1608,6 +1608,7 @@ void test_receive(void) {
       /* LCOV_EXCL_STOP*/
       free(out);
     }
+    fprintf(stderr, "\n");
     testnr++;
   }
 }
@@ -1645,7 +1646,7 @@ void test_receive_binary(void) {
   testnr = -1;
 
   for(size=1;size<4096;size++) {
-    fprintf(stderr, "%s:%d: receive test #%d with buffer %d\n", __FUNCTION__, __LINE__, testnr+1, size);
+    fprintf(stderr, "%s:%d: receive test #%d with buffer %d\r", __FUNCTION__, __LINE__, testnr+1, size);
 
     memset(&clients[0], 0, sizeof(struct webserver_t));
 
@@ -1717,6 +1718,7 @@ void test_receive_binary(void) {
     }
     free(contents);
   }
+  fprintf(stderr, "\n");
 }
 
 int client_write(unsigned char *buf, int size) {
