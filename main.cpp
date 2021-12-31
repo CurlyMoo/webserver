@@ -112,6 +112,28 @@ struct unittest_t {
     }
   },
   {
+    "GET",
+    "/dallasalias",
+    "HTTP/1.1",
+    NULL,
+    0,
+    7,
+    {
+      { "Host", "s0meterkantoor.local" },
+      { "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0" },
+      { "Upgrade-Insecure-Requests", "1" },
+      { "Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8" },
+      { "Accept-Language", "nl,en-US;q=0.7,en;q=0.3" },
+      { "Accept-Encoding", "gzip, deflate" },
+      { "Connection", "keep-alive" },
+      { "Upgrade-Insecure-Requests", "1" },
+    },
+    1,
+    {
+      { 0, "28813f8d332001c9", "adfasdfffffffffffaadfasdfffffffffffaadfasdfffffffffffaadfasdfffffffffffaadfasdfffffffffffaadfasdffad123" }
+    }
+  },
+  {
     "POST",
     "/savesettings",
     "HTTP/1.1",
