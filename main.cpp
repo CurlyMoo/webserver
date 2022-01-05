@@ -1317,25 +1317,31 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
         case 1: {
           if(testnr == 2) {
             return -1;
-          } else {
+          } else if(testnr >= 0) {
             webserver_send_content(client, (char *)gplv3_2, strlen((char *)gplv3_2));
             webserver_send_content(client, (char *)gplv3_3, strlen((char *)gplv3_3));
             return 0;
           }
         } break;
         case 2: {
-          webserver_send_content(client, (char *)gplv3_4, strlen((char *)gplv3_4));
-          webserver_send_content(client, (char *)gplv3_5, strlen((char *)gplv3_5));
-          return 0;
+          if(testnr >= 0) {
+            webserver_send_content(client, (char *)gplv3_4, strlen((char *)gplv3_4));
+            webserver_send_content(client, (char *)gplv3_5, strlen((char *)gplv3_5));
+            return 0;
+          }
         } break;
         case 3: {
-          webserver_send_content(client, (char *)gplv3_6, strlen((char *)gplv3_6));
-          webserver_send_content(client, (char *)gplv3_7, strlen((char *)gplv3_7));
-          return 0;
+          if(testnr >= 0) {
+            webserver_send_content(client, (char *)gplv3_6, strlen((char *)gplv3_6));
+            webserver_send_content(client, (char *)gplv3_7, strlen((char *)gplv3_7));
+            return 0;
+          }
         } break;
         case 4: {
-          webserver_send_content(client, (char *)gplv3_8, strlen((char *)gplv3_8));
-          return 0;
+          if(testnr >= 0) {
+            webserver_send_content(client, (char *)gplv3_8, strlen((char *)gplv3_8));
+            return 0;
+          }
         } break;
         default: {
           return -1;
@@ -1352,6 +1358,9 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
         header->ptr += sprintf((char *)header->buffer, "Access-Control-Allow-Origin: *");
         return 0;
       }
+    } break;
+    case WEBSERVER_CLIENT_WEBSOCKET_TEXT: {
+      done = 0;
     } break;
   }
   return 0;
@@ -1743,8 +1752,49 @@ void test_receive_binary(void) {
   fprintf(stderr, "\n");
 }
 
+static unsigned char wsresponse[255] = {
+	0x81, 0x0d, 0x7b, 0x22,
+	0x66, 0x6f, 0x6f, 0x22,
+	0x3a, 0x22, 0x62, 0x61,
+	0x72, 0x22, 0x7d
+};
+
 int client_write(unsigned char *buf, int size) {
-  if(testnr == 0) {
+  if(testnr == -2) {
+    switch(argnr++) {
+      case 0: {
+        if(strcmp((char *)buf,
+          "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
+          "Connection: Upgrade\r\n"
+          "Upgrade: websocket\r\n"
+          "Sec-WebSocket-Accept: I0Py0AMLWSZtp8aSeQd+j/A2xMw=\r\n\r\n"
+          ) != 0 || size != 139) {
+          fprintf(stderr, "%s:%d: test #%d failed\n",
+            __FUNCTION__, __LINE__, testnr+1
+          );
+          exit(-1);
+        }
+        websocket_write_all((const char *)"{\"foo\":\"bar\"}", 13);
+      } break;
+      case 1: {
+        if(strncmp((char *)buf, (char *)wsresponse, 2) != 0 || size != 2) {
+          fprintf(stderr, "%s:%d: test #%d failed\n",
+            __FUNCTION__, __LINE__, testnr+1
+          );
+          exit(-1);
+        }
+      } break;
+      case 2: {
+        if(strcmp((char *)buf, (char *)&wsresponse[2]) != 0 || size != 13) {
+          fprintf(stderr, "%s:%d: test #%d failed\n",
+            __FUNCTION__, __LINE__, testnr+1
+          );
+          exit(-1);
+        }
+        done = 0;
+      } break;
+    }
+  } else if(testnr == 0) {
     switch(argnr++) {
       case 0: {
         if(strcmp((char *)buf,
@@ -2483,10 +2533,86 @@ void test_send(void) {
   webserver_cb(&clients[1].data, NULL);
 }
 
+void test_websocket(void) {
+  fprintf(stderr, "%s:%d: websocket test\n", __FUNCTION__, __LINE__);
+
+  testnr = -2;
+  argnr = 0;
+
+  memset(&clients[0], 0, sizeof(struct webserver_t));
+
+  clients[0].data.callback = &webserver_cb;
+  clients[0].data.step = WEBSERVER_CLIENT_READ_HEADER;
+
+  clients[0].data.client = new WiFiClient;
+  memset(clients[0].data.client, 0, sizeof(struct WiFiClient));
+  clients[0].data.client->write = client_write;
+  clients[0].data.client->write_P = client_write_P;
+  clients[0].data.client->available = client_available;
+  clients[0].data.client->connected = client_connected;
+  clients[0].data.client->read = client_read;
+
+  char foo[] =
+    "GET / HTTP/1.1\r\n"
+    "Host: 127.0.0.1\r\n"
+		"User-Agent: pilight\r\n"
+		"Sec-WebSocket-Version: 13\r\n"
+		"Origin: http://127.0.0.1\r\n"
+		"Sec-WebSocket-Extensions: permessage-deflate\r\n"
+		"Sec-WebSocket-Key: 94enVvHDRqelYdOoZ41ZvA==\r\n"
+		"Connection: close\r\n"
+		"Upgrade: websocket\r\n\r\n";
+
+  webserver_sync_receive(&clients[0].data, (uint8_t *)foo, strlen(foo));
+
+  if(clients[0].data.step != WEBSERVER_CLIENT_WRITE) {
+    fprintf(stderr, "%s:%d: test #%d failed, expected %d got %d\n",
+      __FUNCTION__, __LINE__, testnr+1, WEBSERVER_CLIENT_WRITE, clients[0].data.step
+    );
+    exit(-1);
+  }
+
+  while(done) {
+    webserver_loop();
+  }
+
+  if(clients[0].data.step != WEBSERVER_CLIENT_WEBSOCKET) {
+    fprintf(stderr, "%s:%d: test #%d failed, expected %d got %d\n",
+      __FUNCTION__, __LINE__, testnr+1, WEBSERVER_CLIENT_WEBSOCKET, clients[0].data.step
+    );
+    exit(-1);
+  }
+
+  done = 1;
+
+  webserver_sync_receive(&clients[0].data, (uint8_t *)wsresponse, strlen((char *)wsresponse));
+
+  while(done) {
+    webserver_loop();
+  }
+  struct webvalues_t *tmp = NULL;
+  while(webargs) {
+    tmp = webargs;
+    webargs = webargs->next;
+    free(tmp->name);
+    free(tmp->value);
+    free(tmp);
+  }
+
+  while(webheader) {
+    tmp = webheader;
+    webheader = webheader->next;
+    free(tmp->name);
+    free(tmp->value);
+    free(tmp);
+  }
+}
+
 int main(void) {
   test_receive();
   test_edge_case1();
   test_receive_binary();
+  test_websocket();
   testnr = 0;
 
   for(testnr=0;testnr<3;testnr++) {

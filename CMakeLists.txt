@@ -49,7 +49,6 @@ set(${PROJECT_NAME}_files ${${PROJECT_NAME}_sources} ${${PROJECT_NAME}_headers} 
 add_library(${PROJECT_NAME} OBJECT ${webserver_files})
 
 add_library(${PROJECT_NAME}_shared SHARED $<TARGET_OBJECTS:${PROJECT_NAME}>)
-
 add_library(${PROJECT_NAME}_static STATIC $<TARGET_OBJECTS:${PROJECT_NAME}>)
 
 target_link_libraries(${PROJECT_NAME}_shared m)
