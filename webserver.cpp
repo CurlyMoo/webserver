@@ -1893,7 +1893,6 @@ void websocket_write_all_P(PGM_P data, uint16_t data_len) {
 
 void websocket_send_header(struct webserver_t *client, uint8_t opcode, uint16_t data_len) {
   unsigned char copy[10];
-  size_t copy_len = 0;
   int index = 2;
   memset(&copy, 0, 10);
 
@@ -2284,12 +2283,13 @@ void webserver_loop(void) {
       } break;
 #ifdef ESP8266
       case WEBSERVER_CLIENT_CLOSE: {
+        Serial.print("Closing webserver client: ");
+        Serial.print(clients[i].data.client.remoteIP());
+        Serial.print(":");
+        Serial.println(clients[i].data.client.remotePort());
         if(clients[i].data.callback != NULL) {
           clients[i].data.callback(&clients[i].data, NULL);
         }
-        char log_msg[256];
-        sprintf_P(log_msg, PSTR("Closing webserver client: %s:%d"), clients[i].data.client->remoteIP().toString().c_str(), clients[i].data.client->remotePort());
-        log_message(log_msg);
 
         clients[i].data.client->stop();
         webserver_reset_client(&clients[i].data);
