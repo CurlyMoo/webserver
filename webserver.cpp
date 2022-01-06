@@ -50,7 +50,8 @@
 
   #include "webserver.h"
   #include "base64.h"
-  #include "hash.h"
+  #include "sha1.h"
+
   #include <errno.h>
 #endif
 
@@ -1533,58 +1534,62 @@ static int webserver_process_send(struct webserver_t *client) {
     tmp = NULL;
 
     client->content++;
-    client->step = WEBSERVER_CLIENT_WRITE;
-    if(client->callback(client, NULL) == -1) {
-      client->step = WEBSERVER_CLIENT_CLOSE;
+    if(client->is_websocket == 1) {
+      client->step = WEBSERVER_CLIENT_WEBSOCKET;
     } else {
-      client->step = WEBSERVER_CLIENT_SENDING;
-    }
+      client->step = WEBSERVER_CLIENT_WRITE;
+      if(client->callback(client, NULL) == -1) {
+        client->step = WEBSERVER_CLIENT_CLOSE;
+      } else {
+        client->step = WEBSERVER_CLIENT_SENDING;
+      }
 
 #if WEBSERVER_MAX_SENDLIST == 0
-    tmp = client->sendlist;
+      tmp = client->sendlist;
 #else
-    for(x=0;x<WEBSERVER_MAX_SENDLIST;x++) {
-      if(
+      for(x=0;x<WEBSERVER_MAX_SENDLIST;x++) {
+        if(
 #if WEBSERVER_SENDLIST_BUFSIZE == 0
-        client->sendlist[x].data.ptr != NULL
+          client->sendlist[x].data.ptr != NULL
 #else
-        (client->sendlist[x].type == 1 && client->sendlist[x].data.ptr != NULL) ||
-        (client->sendlist[x].type == 0 && strlen((char *)client->sendlist[x].data.fixed) > 0)
+          (client->sendlist[x].type == 1 && client->sendlist[x].data.ptr != NULL) ||
+          (client->sendlist[x].type == 0 && strlen((char *)client->sendlist[x].data.fixed) > 0)
 #endif
-      ) {
-        tmp = &client->sendlist[x];
-        break;
+        ) {
+          tmp = &client->sendlist[x];
+          break;
+        }
       }
-    }
 #endif
-    if(tmp == NULL) {
-      if(client->chunked == 1) {
-        if(client->async == 1) {
-          tcp_write_P(client->pcb, PSTR("0\r\n\r\n"), 5, 0);
-        } else {
-          if(client->client->write_P((char *)PSTR("0\r\n\r\n"), 5) > 0) {
-            client->lastseen = millis();
+      if(tmp == NULL) {
+        if(client->chunked == 1) {
+          if(client->async == 1) {
+            tcp_write_P(client->pcb, PSTR("0\r\n\r\n"), 5, 0);
+          } else {
+            if(client->client->write_P((char *)PSTR("0\r\n\r\n"), 5) > 0) {
+              client->lastseen = millis();
+            }
           }
-        }
-        i += 5;
-      } else {
-        if(client->async == 1) {
-          tcp_write_P(client->pcb, PSTR("\r\n\r\n"), 4, 0);
+          i += 5;
         } else {
-          if(client->client->write_P((char *)PSTR("\r\n\r\n"), 4) > 0) {
-            client->lastseen = millis();
+          if(client->async == 1) {
+            tcp_write_P(client->pcb, PSTR("\r\n\r\n"), 4, 0);
+          } else {
+            if(client->client->write_P((char *)PSTR("\r\n\r\n"), 4) > 0) {
+              client->lastseen = millis();
+            }
           }
+          i += 4;
         }
-        i += 4;
+        if(client->is_websocket == 1) {
+          client->step = WEBSERVER_CLIENT_WEBSOCKET;
+        } else {
+          client->step = WEBSERVER_CLIENT_CLOSE;
+          client->userdata = NULL;
+        }
+        client->ptr = 0;
+        client->content = 0;
       }
-      if(client->is_websocket == 1) {
-        client->step = WEBSERVER_CLIENT_WEBSOCKET;
-      } else {
-        client->step = WEBSERVER_CLIENT_CLOSE;
-        client->userdata = NULL;
-      }
-      client->ptr = 0;
-      client->content = 0;
     }
   }
   if(client->async == 1) {
@@ -1687,10 +1692,20 @@ void webserver_send_content(struct webserver_t *client, char *buf, uint16_t size
   }
 #endif
   memset(node, 0, sizeof(struct sendlist_t));
-#if WEBSERVER_SENDLIST_BUFSIZE
-  strncpy((char *)node->data.fixed, buf, WEBSERVER_SENDLIST_BUFSIZE-1);
+#if WEBSERVER_SENDLIST_BUFSIZE > 0
+  int x = 0;
+  for(x=0;x<size && x<WEBSERVER_SENDLIST_BUFSIZE;x++) {
+    node->data.fixed[x] = buf[x];
+  }
 #else
-  node->data.ptr = strdup(buf);
+  if((node->data.ptr = malloc(size)) == NULL) {
+  #ifdef ESP8266
+    Serial.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+    ESP.restart();
+    exit(-1);
+  #endif
+  }
+  memcpy(node->data.ptr, buf, size);
 #endif
 
   node->size = size;
@@ -1833,9 +1848,7 @@ static void send_websocket_handshake(struct webserver_t *client, const char *key
 
   snprintf(cpy, sizeof(cpy), "%s%s", key, magic);
 
-#ifdef __linux__
   sha1digest((uint8_t *)input, NULL, (uint8_t *)cpy, strlen(cpy));
-#endif
 
   if(Base64encode(encoded, input, 20) > 0) {  
     uint16_t len = snprintf(NULL, 0,
@@ -1866,11 +1879,13 @@ static void send_websocket_handshake(struct webserver_t *client, const char *key
 void websocket_write_P(struct webserver_t *client, PGM_P data, uint16_t data_len) {
   websocket_send_header(client, WEBSOCKET_OPCODE_TEXT, data_len);
   webserver_send_content_P(client, data, data_len);
+  client->step = WEBSERVER_CLIENT_SENDING;
 }
 
 void websocket_write(struct webserver_t *client, char *data, uint16_t data_len) {
   websocket_send_header(client, WEBSOCKET_OPCODE_TEXT, data_len);
   webserver_send_content(client, (char *)data, data_len);
+  client->step = WEBSERVER_CLIENT_SENDING;
 }
 
 void websocket_write_all(char *data, uint16_t data_len) {
@@ -2008,13 +2023,13 @@ uint8_t webserver_sync_receive(struct webserver_t *client, uint8_t *rbuffer, uin
         if(client->step == WEBSERVER_CLIENT_ARGS) {
           return 1;
         }
-      } else {
+      } else if(client->step != WEBSERVER_CLIENT_WEBSOCKET) {
         client->step = WEBSERVER_CLIENT_WRITE;
       }
     }
   }
 
-  if(client->step == WEBSERVER_CLIENT_WEBSOCKET) {
+  if(client->step == WEBSERVER_CLIENT_WEBSOCKET && size > 0) {
     websocket_read(client, rbuffer, size);
   }
 
@@ -2033,6 +2048,7 @@ uint8_t webserver_sync_receive(struct webserver_t *client, uint8_t *rbuffer, uin
       client->step = WEBSERVER_CLIENT_WRITE;
     }
   }
+
   return 0;
 }
 
@@ -2197,8 +2213,7 @@ err_t webserver_client(void *arg, tcp_pcb *pcb, err_t err) {
       //tcp_nagle_disable(pcb);
       tcp_recv(pcb, &webserver_async_receive);
       tcp_sent(pcb, &webserver_sent);
-      // 15 seconds timer
-      tcp_poll(pcb, &webserver_poll, WEBSERVER_CLIENT_TIMEOUT*2);
+      tcp_poll(pcb, &webserver_poll, (WEBSERVER_CLIENT_TIMEOUT/1000)*2);
       break;
     }
   }

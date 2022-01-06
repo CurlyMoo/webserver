@@ -1759,6 +1759,26 @@ static unsigned char wsresponse[255] = {
 	0x72, 0x22, 0x7d
 };
 
+static unsigned char wsresponse1[255] = {
+  0x81, 0x7e, 0x00, 0xc5, 0x54, 0x68, 0x75, 0x20, 0x4a, 0x61, 0x6e, 0x20,
+  0x20, 0x31, 0x20, 0x30, 0x31, 0x3a, 0x30, 0x39, 0x3a, 0x31, 0x32, 0x20,
+  0x31, 0x39, 0x37, 0x30, 0x20, 0x28, 0x35, 0x36, 0x35, 0x31, 0x39, 0x33,
+  0x29, 0x3a, 0x20, 0x48, 0x65, 0x69, 0x73, 0x68, 0x61, 0x6d, 0x6f, 0x6e,
+  0x20, 0x73, 0x74, 0x61, 0x74, 0x73, 0x3a, 0x20, 0x55, 0x70, 0x74, 0x69,
+  0x6d, 0x65, 0x3a, 0x20, 0x30, 0x20, 0x64, 0x61, 0x79, 0x73, 0x20, 0x30,
+  0x20, 0x68, 0x6f, 0x75, 0x72, 0x73, 0x20, 0x39, 0x20, 0x6d, 0x69, 0x6e,
+  0x75, 0x74, 0x65, 0x73, 0x20, 0x32, 0x35, 0x20, 0x73, 0x65, 0x63, 0x6f,
+  0x6e, 0x64, 0x73, 0x20, 0x23, 0x23, 0x20, 0x46, 0x72, 0x65, 0x65, 0x20,
+  0x6d, 0x65, 0x6d, 0x6f, 0x72, 0x79, 0x3a, 0x20, 0x37, 0x34, 0x25, 0x20,
+  0x33, 0x30, 0x31, 0x35, 0x32, 0x20, 0x62, 0x79, 0x74, 0x65, 0x73, 0x20,
+  0x23, 0x23, 0x20, 0x57, 0x69, 0x66, 0x69, 0x3a, 0x20, 0x34, 0x38, 0x25,
+  0x20, 0x28, 0x52, 0x53, 0x53, 0x49, 0x3a, 0x20, 0x2d, 0x37, 0x36, 0x29,
+  0x20, 0x23, 0x23, 0x20, 0x4d, 0x71, 0x74, 0x74, 0x20, 0x72, 0x65, 0x63,
+  0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x73, 0x3a, 0x20, 0x30, 0x20, 0x23,
+  0x23, 0x20, 0x43, 0x6f, 0x72, 0x72, 0x65, 0x63, 0x74, 0x20, 0x64, 0x61,
+  0x74, 0x61, 0x3a, 0x20, 0x30, 0x2e, 0x30, 0x30, 0x25
+};
+
 int client_write(unsigned char *buf, int size) {
   if(testnr == -2) {
     switch(argnr++) {
@@ -1774,7 +1794,7 @@ int client_write(unsigned char *buf, int size) {
           );
           exit(-1);
         }
-        websocket_write_all((const char *)"{\"foo\":\"bar\"}", 13);
+        done = 0;
       } break;
       case 1: {
         if(strncmp((char *)buf, (char *)wsresponse, 2) != 0 || size != 2) {
@@ -1786,6 +1806,23 @@ int client_write(unsigned char *buf, int size) {
       } break;
       case 2: {
         if(strcmp((char *)buf, (char *)&wsresponse[2]) != 0 || size != 13) {
+          fprintf(stderr, "%s:%d: test #%d failed\n",
+            __FUNCTION__, __LINE__, testnr+1
+          );
+          exit(-1);
+        }
+        done = 0;
+      } break;
+      case 3: {
+        if(strncmp((char *)buf, (char *)wsresponse1, 4) != 0 || size != 4) {
+          fprintf(stderr, "%s:%d: test #%d failed\n",
+            __FUNCTION__, __LINE__, testnr+1
+          );
+          exit(-1);
+        }
+      } break;
+      case 4: {
+        if(strcmp((char *)buf, (char *)&wsresponse1[4]) != 0 || size != 197) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2565,12 +2602,34 @@ void test_websocket(void) {
 
   webserver_sync_receive(&clients[0].data, (uint8_t *)foo, strlen(foo));
 
-  if(clients[0].data.step != WEBSERVER_CLIENT_WRITE) {
+  if(clients[0].data.step != WEBSERVER_CLIENT_WEBSOCKET) {
     fprintf(stderr, "%s:%d: test #%d failed, expected %d got %d\n",
-      __FUNCTION__, __LINE__, testnr+1, WEBSERVER_CLIENT_WRITE, clients[0].data.step
+      __FUNCTION__, __LINE__, testnr+1, WEBSERVER_CLIENT_WEBSOCKET, clients[0].data.step
     );
     exit(-1);
   }
+
+  while(done) {
+    webserver_loop();
+  }
+
+  done = 1;
+  websocket_write_all((const char *)"{\"foo\":\"bar\"}", 13);
+
+  while(done) {
+    webserver_loop();
+  }
+
+  if(clients[0].data.step != WEBSERVER_CLIENT_WEBSOCKET) {
+    fprintf(stderr, "%s:%d: test #%d failed, expected %d got %d\n",
+      __FUNCTION__, __LINE__, testnr+1, WEBSERVER_CLIENT_WEBSOCKET, clients[0].data.step
+    );
+    exit(-1);
+  }
+
+  done = 1;
+
+  websocket_write_all((const char *)"Thu Jan  1 01:09:12 1970 (565193): Heishamon stats: Uptime: 0 days 0 hours 9 minutes 25 seconds ## Free memory: 74% 30152 bytes ## Wifi: 48% (RSSI: -76) ## Mqtt reconnects: 0 ## Correct data: 0.00%", 197);
 
   while(done) {
     webserver_loop();
@@ -2590,6 +2649,14 @@ void test_websocket(void) {
   while(done) {
     webserver_loop();
   }
+
+  if(argnr != 5) {
+    fprintf(stderr, "%s:%d: test #%d failed, expected %d got %d\n",
+      __FUNCTION__, __LINE__, testnr+1, 4, argnr
+    );
+    exit(-1);
+  }
+
   struct webvalues_t *tmp = NULL;
   while(webargs) {
     tmp = webargs;
