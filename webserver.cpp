@@ -1197,7 +1197,9 @@ static uint16_t webserver_create_header(struct webserver_t *client, uint16_t cod
     tcp_output(client->pcb);
   } else {
     if(client->client->write(buffer, i) > 0) {
-      client->lastseen = millis();
+      if(client->is_websocket == 0) {
+        client->lastseen = millis();
+      }
     }
   }
 
@@ -1294,7 +1296,9 @@ static int webserver_process_send(struct webserver_t *client) {
       tcp_write(client->pcb, chunk_size, n, 0);
     } else {
       if(client->client->write(chunk_size, n) > 0) {
-        client->lastseen = millis();
+        if(client->is_websocket == 0) {
+          client->lastseen = millis();
+        }
       }
     }
     i += n;
@@ -1328,7 +1332,9 @@ static int webserver_process_send(struct webserver_t *client) {
               tcp_write(client->pcb, cpy, tmp->size, TCP_WRITE_FLAG_MORE);
             } else {
               if(client->client->write(cpy, tmp->size) > 0) {
-                client->lastseen = millis();
+                if(client->is_websocket == 0) {
+                  client->lastseen = millis();
+                }
               }
             }
           } else {
@@ -1344,7 +1350,9 @@ static int webserver_process_send(struct webserver_t *client) {
 #else
               if(client->client->write(&((unsigned char *)tmp->data.fixed)[client->ptr], tmp->size) > 0) {
 #endif
-                client->lastseen = millis();
+                if(client->is_websocket == 0) {
+                  client->lastseen = millis();
+                }
               }
             }
           }
@@ -1390,7 +1398,9 @@ static int webserver_process_send(struct webserver_t *client) {
               tcp_write(client->pcb, cpy, client->totallen, TCP_WRITE_FLAG_MORE);
             } else {
               if(client->client->write(cpy, client->totallen) > 0) {
-                client->lastseen = millis();
+                if(client->is_websocket == 0) {
+                  client->lastseen = millis();
+                }
               }
             }
           } else {
@@ -1406,7 +1416,9 @@ static int webserver_process_send(struct webserver_t *client) {
 #else
               if(client->client->write(&((unsigned char *)tmp->data.fixed)[client->ptr], client->totallen) > 0) {
 #endif
-                client->lastseen = millis();
+                if(client->is_websocket == 0) {
+                  client->lastseen = millis();
+                }
               }
             }
           }
@@ -1421,7 +1433,9 @@ static int webserver_process_send(struct webserver_t *client) {
             tcp_write(client->pcb, cpy, (tmp->size-client->ptr), TCP_WRITE_FLAG_MORE);
           } else {
             if(client->client->write(cpy, (tmp->size-client->ptr)) > 0) {
-              client->lastseen = millis();
+              if(client->is_websocket == 0) {
+                client->lastseen = millis();
+              }
             }
           }
         } else {
@@ -1437,7 +1451,9 @@ static int webserver_process_send(struct webserver_t *client) {
 #else
             if(client->client->write(&((unsigned char *)tmp->data.fixed)[client->ptr], (tmp->size-client->ptr)) > 0) {
 #endif
-              client->lastseen = millis();
+              if(client->is_websocket == 0) {
+                client->lastseen = millis();
+              }
             }
           }
         }
@@ -1482,7 +1498,9 @@ static int webserver_process_send(struct webserver_t *client) {
             tcp_write(client->pcb, cpy, client->totallen, TCP_WRITE_FLAG_MORE);
           } else {
             if(client->client->write(cpy, client->totallen) > 0) {
-              client->lastseen = millis();
+              if(client->is_websocket == 0) {
+                client->lastseen = millis();
+              }
             }
           }
         } else {
@@ -1498,7 +1516,9 @@ static int webserver_process_send(struct webserver_t *client) {
 #else
             if(client->client->write(&((unsigned char *)tmp->data.fixed)[client->ptr], client->totallen) > 0) {
 #endif
-              client->lastseen = millis();
+              if(client->is_websocket == 0) {
+                client->lastseen = millis();
+              }
             }
           }
         }
@@ -1511,7 +1531,9 @@ static int webserver_process_send(struct webserver_t *client) {
         tcp_write_P(client->pcb, PSTR("\r\n"), 2, TCP_WRITE_FLAG_MORE);
       } else {
         if(client->client->write_P((char *)PSTR("\r\n"), 2) > 0) {
-          client->lastseen = millis();
+          if(client->is_websocket == 0) {
+            client->lastseen = millis();
+          }
         }
       }
     }
@@ -1567,7 +1589,9 @@ static int webserver_process_send(struct webserver_t *client) {
             tcp_write_P(client->pcb, PSTR("0\r\n\r\n"), 5, 0);
           } else {
             if(client->client->write_P((char *)PSTR("0\r\n\r\n"), 5) > 0) {
-              client->lastseen = millis();
+              if(client->is_websocket == 0) {
+                client->lastseen = millis();
+              }
             }
           }
           i += 5;
@@ -1576,17 +1600,15 @@ static int webserver_process_send(struct webserver_t *client) {
             tcp_write_P(client->pcb, PSTR("\r\n\r\n"), 4, 0);
           } else {
             if(client->client->write_P((char *)PSTR("\r\n\r\n"), 4) > 0) {
-              client->lastseen = millis();
+              if(client->is_websocket == 0) {
+                client->lastseen = millis();
+              }
             }
           }
           i += 4;
         }
-        if(client->is_websocket == 1) {
-          client->step = WEBSERVER_CLIENT_WEBSOCKET;
-        } else {
-          client->step = WEBSERVER_CLIENT_CLOSE;
-          client->userdata = NULL;
-        }
+        client->step = WEBSERVER_CLIENT_CLOSE;
+        client->userdata = NULL;
         client->ptr = 0;
         client->content = 0;
       }
@@ -1765,7 +1787,9 @@ done:
       tcp_output(client->pcb);
     } else{
       if(client->client->write((unsigned char *)&buffer, i) > 0) {
-        client->lastseen = millis();
+        if(client->is_websocket == 0) {
+          client->lastseen = millis();
+        }
       }
     }
   } else {
@@ -1870,7 +1894,9 @@ static void send_websocket_handshake(struct webserver_t *client, const char *key
       tcp_output(client->pcb);
     } else {
       if(client->client->write((unsigned char *)buf, len) > 0) {
-        client->lastseen = millis();
+        if(client->is_websocket == 0) {
+          client->lastseen = millis();
+        }
       }
     }
   }
@@ -1942,38 +1968,47 @@ void websocket_send_header(struct webserver_t *client, uint8_t opcode, uint16_t 
 int websocket_read(struct webserver_t *client, unsigned char *buf, ssize_t buf_len) {
   unsigned int i = 0, j = 0;
   unsigned char mask[4];
-  unsigned int packet_length = 0;
-  unsigned int length_code = 0;
+  uint32_t packet_length = 0;
   int index_first_mask = 0;
   int index_first_data_byte = 0;
   int opcode = buf[0] & 0xF;
 
   memset(&mask, '\0', 4);
-  length_code = ((unsigned char)buf[1]) & 0x7F;
+  packet_length = ((unsigned char)buf[1]) & 0x7F;
 
   index_first_mask = 2;
-  if(length_code == 126) {
+  if(packet_length == 126) {
     index_first_mask = 4;
-  } else if(length_code == 127) {
+    packet_length = buf[2] << 8 | buf[3];
+  } else if(packet_length == 127) {
+    if(buf[2] != 0 || buf[3] != 0 || buf[4] != 0 || buf[5] != 0) {
+      /*
+       * Packet length too big
+       */
+      return -1;
+    } else {
+      packet_length = buf[6] << 24 | buf[7] << 16 | buf[8] << 8 | buf[9];
+    }
     index_first_mask = 10;
   }
   memcpy(mask, &buf[index_first_mask], 4);
-  index_first_data_byte = index_first_mask;
+  index_first_data_byte = index_first_mask + 4;
 
-  packet_length = buf_len - index_first_data_byte;
-  for(i = index_first_data_byte, j = 0; i < buf_len; i++, j++) {
+  for(i = index_first_data_byte, j = 0; i < buf_len && i < packet_length + index_first_data_byte; i++, j++) {
     buf[j] = buf[i] ^ mask[j % 4];
   }
   buf[packet_length] = '\0';
 
   switch(opcode) {
     case WEBSOCKET_OPCODE_PONG: {
+      client->lastseen = millis();
     } break;
     case WEBSOCKET_OPCODE_PING: {
       websocket_send_header(client, WEBSOCKET_OPCODE_PONG, 0);
     } break;
     case WEBSOCKET_OPCODE_CONNECTION_CLOSE:
       websocket_send_header(client, WEBSOCKET_OPCODE_CONNECTION_CLOSE, 0);
+      client->step = WEBSERVER_CLIENT_CLOSE;
       return -1;
     break;
     case WEBSOCKET_OPCODE_TEXT:
@@ -2251,6 +2286,7 @@ void webserver_loop(void) {
         memset(&clients[i].data.buffer, 0, WEBSERVER_BUFFER_SIZE);
       } break;
       case WEBSERVER_CLIENT_ARGS:
+      case WEBSERVER_CLIENT_WEBSOCKET:
       case WEBSERVER_CLIENT_READ_HEADER: {
         if(clients[i].data.client->connected() || clients[i].data.client->available()) {
           if(clients[i].data.client->available()) {

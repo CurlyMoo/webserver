@@ -37,6 +37,7 @@ static int16_t testnr = 0;
 static uint16_t headernr = 0;
 static uint16_t argnr = 0;
 static uint16_t done = 1;
+static uint8_t check = 1;
 
 struct webvalues_t {
   unsigned char *name;
@@ -1360,6 +1361,15 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
       }
     } break;
     case WEBSERVER_CLIENT_WEBSOCKET_TEXT: {
+      if(strcmp((char *)data, "Thu Jan  6 21:38:11 2022 (25647): Heishamon stats: Uptime: 0 days 0 hours 0 minutes 25 seconds ## Free memory: 75% 29600 bytes ## Wifi: 64% (RSSI: -68) ## Mqtt reconnects: 1 ## Correct data: 0.00%") != 0) {
+        /*LCOV_EXCL_START*/
+        fprintf(stderr, "%s:%d: test #%d failed, expected %s got %s\n",
+          __FUNCTION__, __LINE__, testnr+1, unittest[testnr].url, (char *)data
+        );
+        exit(-1);
+        /*LCOV_EXCL_STOP*/
+      }
+      check = 1;
       done = 0;
     } break;
   }
@@ -1783,12 +1793,12 @@ int client_write(unsigned char *buf, int size) {
   if(testnr == -2) {
     switch(argnr++) {
       case 0: {
-        if(strcmp((char *)buf,
+        if(memcmp((char *)buf,
           "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
           "Connection: Upgrade\r\n"
           "Upgrade: websocket\r\n"
-          "Sec-WebSocket-Accept: I0Py0AMLWSZtp8aSeQd+j/A2xMw=\r\n\r\n"
-          ) != 0 || size != 139) {
+          "Sec-WebSocket-Accept: I0Py0AMLWSZtp8aSeQd+j/A2xMw=\r\n\r\n",
+          size) != 0 || size != 139) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1805,7 +1815,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 2: {
-        if(strcmp((char *)buf, (char *)&wsresponse[2]) != 0 || size != 13) {
+        if(memcmp((char *)buf, (char *)&wsresponse[2], size) != 0 || size != 13) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1822,7 +1832,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 4: {
-        if(strcmp((char *)buf, (char *)&wsresponse1[4]) != 0 || size != 197) {
+        if(memcmp((char *)buf, (char *)&wsresponse1[4], size) != 0 || size != 197) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1834,12 +1844,13 @@ int client_write(unsigned char *buf, int size) {
   } else if(testnr == 0) {
     switch(argnr++) {
       case 0: {
-        if(strcmp((char *)buf,
+        if(memcmp((char *)buf,
           "HTTP/1.1 200 OK\r\n"
           "Access-Control-Allow-Origin: *\r\n"
           "Keep-Alive: timeout=15, max=100\r\n"
           "Content-Type: text/html\r\n"
-          "Transfer-Encoding: chunked\r\n\r\n"
+          "Transfer-Encoding: chunked\r\n\r\n",
+          size
           ) != 0 || size != 137) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
@@ -1848,7 +1859,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 1: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1856,7 +1867,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 2: {
-        if(strcmp((char *)buf, (char *)gplv3_1) != 0 || size != 286) {
+        if(memcmp((char *)buf, (char *)gplv3_1, size) != 0 || size != 286) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1864,7 +1875,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 3: {
-        if(strcmp((char *)buf, (char *)gplv3_2) != 0 || size != 1158) {
+        if(memcmp((char *)buf, (char *)gplv3_2, size) != 0 || size != 1158) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1872,7 +1883,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 5: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1880,7 +1891,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 6: {
-        if(strcmp((char *)buf, (char *)&gplv3_2[1158]) != 0 || size != 52) {
+        if(memcmp((char *)buf, (char *)&gplv3_2[1158], size) != 0 || size != 52) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1888,7 +1899,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 7: {
-        if(strcmp((char *)buf, (char *)gplv3_3) != 0 || size != 1392) {
+        if(memcmp((char *)buf, (char *)gplv3_3, size) != 0 || size != 1392) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1896,7 +1907,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 9: {
-        if(strcmp((char *)buf, "257\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "257\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1904,7 +1915,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 10: {
-        if(strcmp((char *)buf, (char *)&gplv3_3[MTU_SIZE - 68]) != 0 || size != 599) {
+        if(memcmp((char *)buf, (char *)&gplv3_3[MTU_SIZE - 68], size) != 0 || size != 599) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1912,7 +1923,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 12: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1920,7 +1931,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 13: {
-        if(strcmp((char *)buf, (char *)gplv3_4) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)gplv3_4, size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1928,7 +1939,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 15: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1936,7 +1947,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 16: {
-        if(strcmp((char *)buf, (char *)&gplv3_4[1444]) != 0 || size != 486) {
+        if(memcmp((char *)buf, (char *)&gplv3_4[1444], size) != 0 || size != 486) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1944,7 +1955,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 17: {
-        if(strcmp((char *)buf, (char *)gplv3_5) != 0 || size != 958) {
+        if(memcmp((char *)buf, (char *)gplv3_5, size) != 0 || size != 958) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1952,7 +1963,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 19: {
-        if(strcmp((char *)buf, "496\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "496\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1960,7 +1971,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 20: {
-        if(strcmp((char *)buf, (char *)&gplv3_5[958]) != 0 || size != 1174) {
+        if(memcmp((char *)buf, (char *)&gplv3_5[958], size) != 0 || size != 1174) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1968,7 +1979,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 22: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1976,7 +1987,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 23: {
-        if(strcmp((char *)buf, (char *)gplv3_6) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)gplv3_6, size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1984,7 +1995,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 25: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -1992,7 +2003,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 26: {
-        if(strcmp((char *)buf, (char *)&gplv3_6[1444]) != 0 || size != 1316) {
+        if(memcmp((char *)buf, (char *)&gplv3_6[1444], size) != 0 || size != 1316) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2000,7 +2011,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 27: {
-        if(strcmp((char *)buf, (char *)gplv3_7) != 0 || size != 128) {
+        if(memcmp((char *)buf, (char *)gplv3_7, size) != 0 || size != 128) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2008,7 +2019,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 29: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2016,7 +2027,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 30: {
-        if(strcmp((char *)buf, (char *)&gplv3_7[128]) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)&gplv3_7[128], size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2024,7 +2035,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 32: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2032,7 +2043,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 33: {
-        if(strcmp((char *)buf, (char *)&gplv3_7[128+1444]) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)&gplv3_7[128+1444], size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2040,7 +2051,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 35: {
-        if(strcmp((char *)buf, "4B\r\n") != 0 || size != 4) {
+        if(memcmp((char *)buf, "4B\r\n", size) != 0 || size != 4) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2048,7 +2059,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 36: {
-        if(strcmp((char *)buf, (char *)&gplv3_7[128+1444+1444]) != 0 || size != 75) {
+        if(memcmp((char *)buf, (char *)&gplv3_7[128+1444+1444], size) != 0 || size != 75) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2056,7 +2067,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 38: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2064,7 +2075,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 39: {
-        if(strcmp((char *)buf, (char *)gplv3_8) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)gplv3_8, size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2072,7 +2083,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 41: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2080,7 +2091,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 42: {
-        if(strcmp((char *)buf, (char *)&gplv3_8[1444]) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)&gplv3_8[1444], size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2088,7 +2099,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 44: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2096,7 +2107,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 45: {
-        if(strcmp((char *)buf, (char *)&gplv3_8[1444*2]) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)&gplv3_8[1444*2], size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2104,7 +2115,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 47: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2112,7 +2123,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 48: {
-        if(strcmp((char *)buf, (char *)&gplv3_8[1444*3]) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)&gplv3_8[1444*3], size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2120,7 +2131,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 50: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2128,7 +2139,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 51: {
-        if(strcmp((char *)buf, (char *)&gplv3_8[1444*4]) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)&gplv3_8[1444*4], size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2136,7 +2147,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 53: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2144,7 +2155,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 54: {
-        if(strcmp((char *)buf, (char *)&gplv3_8[1444*5]) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)&gplv3_8[1444*5], size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2152,7 +2163,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 56: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2160,7 +2171,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 57: {
-        if(strcmp((char *)buf, (char *)&gplv3_8[1444*6]) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)&gplv3_8[1444*6], size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2168,7 +2179,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 59: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2176,7 +2187,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 60: {
-        if(strcmp((char *)buf, (char *)&gplv3_8[1444*7]) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)&gplv3_8[1444*7], size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2184,7 +2195,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 62: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2192,7 +2203,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 63: {
-        if(strcmp((char *)buf, (char *)&gplv3_8[1444*8]) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)&gplv3_8[1444*8], size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2200,7 +2211,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 65: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2208,7 +2219,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 66: {
-        if(strcmp((char *)buf, (char *)&gplv3_8[1444*9]) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)&gplv3_8[1444*9], size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2216,7 +2227,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 68: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2224,7 +2235,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 69: {
-        if(strcmp((char *)buf, (char *)&gplv3_8[1444*10]) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)&gplv3_8[1444*10], size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2232,7 +2243,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 71: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2240,7 +2251,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 72: {
-        if(strcmp((char *)buf, (char *)&gplv3_8[1444*11]) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)&gplv3_8[1444*11], size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2248,7 +2259,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 74: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2256,7 +2267,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 75: {
-        if(strcmp((char *)buf, (char *)&gplv3_8[1444*12]) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)&gplv3_8[1444*12], size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2264,7 +2275,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 77: {
-        if(strcmp((char *)buf, "5A4\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2272,7 +2283,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 78: {
-        if(strcmp((char *)buf, (char *)&gplv3_8[1444*13]) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)&gplv3_8[1444*13], size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2280,7 +2291,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 80: {
-        if(strcmp((char *)buf, "56F\r\n") != 0 || size != 5) {
+        if(memcmp((char *)buf, "56F\r\n", size) != 0 || size != 5) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2288,7 +2299,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 81: {
-        if(strcmp((char *)buf, (char *)&gplv3_8[1444*14]) != 0 || size != 1391) {
+        if(memcmp((char *)buf, (char *)&gplv3_8[1444*14], size) != 0 || size != 1391) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2302,13 +2313,14 @@ int client_write(unsigned char *buf, int size) {
   } else if(testnr == 1) {
     switch(argnr++) {
       case 0: {
-        if(strcmp((char *)buf,
+        if(memcmp((char *)buf,
           "HTTP/1.1 200 OK\r\n"
           "Access-Control-Allow-Origin: *\r\n"
           "Server: ESP8266\r\n"
           "Keep-Alive: timeout=15, max=100\r\n"
           "Content-Type: text/html\r\n"
-          "Content-Length: 33907\r\n\r\n"
+          "Content-Length: 33907\r\n\r\n",
+          size
           ) != 0 || size != 149) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
@@ -2317,7 +2329,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 1: {
-        if(strcmp((char *)buf, (char *)gplv3_1) != 0 || size != 286) {
+        if(memcmp((char *)buf, (char *)gplv3_1, size) != 0 || size != 286) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2325,7 +2337,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 2: {
-        if(strcmp((char *)buf, (char *)gplv3_2) != 0 || size != 1158) {
+        if(memcmp((char *)buf, (char *)gplv3_2, size) != 0 || size != 1158) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2333,7 +2345,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 3: {
-        if(strcmp((char *)buf, (char *)&gplv3_2[1158]) != 0 || size != 52) {
+        if(memcmp((char *)buf, (char *)&gplv3_2[1158], size) != 0 || size != 52) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2341,7 +2353,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 4: {
-        if(strcmp((char *)buf, (char *)gplv3_3) != 0 || size != 1392) {
+        if(memcmp((char *)buf, (char *)gplv3_3, size) != 0 || size != 1392) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2349,7 +2361,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 5: {
-        if(strcmp((char *)buf, (char *)&gplv3_3[1392]) != 0 || size != 599) {
+        if(memcmp((char *)buf, (char *)&gplv3_3[1392], size) != 0 || size != 599) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2357,7 +2369,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 6: {
-        if(strcmp((char *)buf, (char *)gplv3_4) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)gplv3_4, size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2365,7 +2377,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 7: {
-        if(strcmp((char *)buf, (char *)&gplv3_4[1444]) != 0 || size != 486) {
+        if(memcmp((char *)buf, (char *)&gplv3_4[1444], size) != 0 || size != 486) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2373,7 +2385,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 8: {
-        if(strcmp((char *)buf, (char *)gplv3_5) != 0 || size != 958) {
+        if(memcmp((char *)buf, (char *)gplv3_5, size) != 0 || size != 958) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2381,7 +2393,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 9: {
-        if(strcmp((char *)buf, (char *)&gplv3_5[958]) != 0 || size != 1174) {
+        if(memcmp((char *)buf, (char *)&gplv3_5[958], size) != 0 || size != 1174) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2389,7 +2401,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 10: {
-        if(strcmp((char *)buf, (char *)gplv3_6) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)gplv3_6, size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2397,7 +2409,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 11: {
-        if(strcmp((char *)buf, (char *)&gplv3_6[1444]) != 0 || size != 1316) {
+        if(memcmp((char *)buf, (char *)&gplv3_6[1444], size) != 0 || size != 1316) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2405,7 +2417,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 12: {
-        if(strcmp((char *)buf, (char *)gplv3_7) != 0 || size != 128) {
+        if(memcmp((char *)buf, (char *)gplv3_7, size) != 0 || size != 128) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2413,7 +2425,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 13: {
-        if(strcmp((char *)buf, (char *)&gplv3_7[128]) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)&gplv3_7[128], size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2421,7 +2433,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 14: {
-        if(strcmp((char *)buf, (char *)&gplv3_7[128+1444]) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)&gplv3_7[128+1444], size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2429,7 +2441,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 15: {
-        if(strcmp((char *)buf, (char *)&gplv3_7[128+1444+1444]) != 0 || size != 75) {
+        if(memcmp((char *)buf, (char *)&gplv3_7[128+1444+1444], size) != 0 || size != 75) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2437,7 +2449,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 16: {
-        if(strcmp((char *)buf, (char *)gplv3_8) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)gplv3_8, size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2457,7 +2469,7 @@ int client_write(unsigned char *buf, int size) {
       case 27:
       case 28:
       case 29: {
-        if(strcmp((char *)buf, (char *)&gplv3_8[1444*(argnr-17)]) != 0 || size != 1444) {
+        if(memcmp((char *)buf, (char *)&gplv3_8[1444*(argnr-17)], size) != 0 || size != 1444) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2465,7 +2477,7 @@ int client_write(unsigned char *buf, int size) {
         }
       } break;
       case 30: {
-        if(strcmp((char *)buf, (char *)&gplv3_8[1444*(argnr-17)]) != 0 || size != 1391) {
+        if(memcmp((char *)buf, (char *)&gplv3_8[1444*(argnr-17)], size) != 0 || size != 1391) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
@@ -2477,9 +2489,10 @@ int client_write(unsigned char *buf, int size) {
       } break;
     }
   } else if(testnr == 2) {
-    if(strcmp((char *)buf,
+    if(memcmp((char *)buf,
       "HTTP/1.1 301 Moved Permanently\r\n"
-      "Location: /\r\n\r\n"
+      "Location: /\r\n\r\n",
+      size
       ) != 0 || size != 47) {
       fprintf(stderr, "%s:%d: test #%d failed\n",
         __FUNCTION__, __LINE__, testnr+1
@@ -2497,14 +2510,14 @@ void test_send(void);
 int client_write_P(const char *buf, int size) {
   if(testnr == 0) {
     if(argnr <= 82) {
-      if(strcmp((char *)buf, "\r\n") != 0 || size != 2) {
+      if(memcmp((char *)buf, "\r\n", size) != 0 || size != 2) {
         fprintf(stderr, "%s:%d: test #%d failed\n",
           __FUNCTION__, __LINE__, testnr+1
         );
         exit(-1);
       }
     } else if(argnr == 83) {
-      if(strcmp((char *)buf, "0\r\n\r\n") != 0 || size != 5) {
+      if(memcmp((char *)buf, "0\r\n\r\n", size) != 0 || size != 5) {
         fprintf(stderr, "%s:%d: test #%d failed\n",
           __FUNCTION__, __LINE__, testnr+1
         );
@@ -2520,7 +2533,7 @@ int client_write_P(const char *buf, int size) {
     }
   } else if(testnr == 1) {
     if(argnr == 31) {
-       if(strcmp((char *)buf, "\r\n\r\n") != 0 || size != 4) {
+       if(memcmp((char *)buf, "\r\n\r\n", size) != 0 || size != 4) {
         fprintf(stderr, "%s:%d: test #%d failed\n",
           __FUNCTION__, __LINE__, testnr+1
         );
@@ -2644,15 +2657,23 @@ void test_websocket(void) {
 
   done = 1;
 
-  webserver_sync_receive(&clients[0].data, (uint8_t *)wsresponse, strlen((char *)wsresponse));
+  unsigned char ping[] = {0x8a, 0x80, 0x6d, 0xc2, 0x63, 0xbc};
+  webserver_sync_receive(&clients[0].data, (uint8_t *)ping, 6);
 
-  while(done) {
-    webserver_loop();
-  }
+
+  unsigned char text[] = {0x81, 0xfe, 0x00, 0xc4, 0x58, 0x07, 0xe9, 0xc5, 0x0c, 0x6f, 0x9c, 0xe5, 0x12, 0x66, 0x87, 0xe5, 0x78, 0x31, 0xc9, 0xf7, 0x69, 0x3d, 0xda, 0xfd, 0x62, 0x36, 0xd8, 0xe5, 0x6a, 0x37, 0xdb, 0xf7, 0x78, 0x2f, 0xdb, 0xf0, 0x6e, 0x33, 0xde, 0xec, 0x62, 0x27, 0xa1, 0xa0, 0x31, 0x74, 0x81, 0xa4, 0x35, 0x68, 0x87, 0xe5, 0x2b, 0x73, 0x88, 0xb1, 0x2b, 0x3d, 0xc9, 0x90, 0x28, 0x73, 0x80, 0xa8, 0x3d, 0x3d, 0xc9, 0xf5, 0x78, 0x63, 0x88, 0xbc, 0x2b, 0x27, 0xd9, 0xe5, 0x30, 0x68, 0x9c, 0xb7, 0x2b, 0x27, 0xd9, 0xe5, 0x35, 0x6e, 0x87, 0xb0, 0x2c, 0x62, 0x9a, 0xe5, 0x6a, 0x32, 0xc9, 0xb6, 0x3d, 0x64, 0x86, 0xab, 0x3c, 0x74, 0xc9, 0xe6, 0x7b, 0x27, 0xaf, 0xb7, 0x3d, 0x62, 0xc9, 0xa8, 0x3d, 0x6a, 0x86, 0xb7, 0x21, 0x3d, 0xc9, 0xf2, 0x6d, 0x22, 0xc9, 0xf7, 0x61, 0x31, 0xd9, 0xf5, 0x78, 0x65, 0x90, 0xb1, 0x3d, 0x74, 0xc9, 0xe6, 0x7b, 0x27, 0xbe, 0xac, 0x3e, 0x6e, 0xd3, 0xe5, 0x6e, 0x33, 0xcc, 0xe5, 0x70, 0x55, 0xba, 0x96, 0x11, 0x3d, 0xc9, 0xe8, 0x6e, 0x3f, 0xc0, 0xe5, 0x7b, 0x24, 0xc9, 0x88, 0x29, 0x73, 0x9d, 0xe5, 0x2a, 0x62, 0x8a, 0xaa, 0x36, 0x69, 0x8c, 0xa6, 0x2c, 0x74, 0xd3, 0xe5, 0x69, 0x27, 0xca, 0xe6, 0x78, 0x44, 0x86, 0xb7, 0x2a, 0x62, 0x8a, 0xb1, 0x78, 0x63, 0x88, 0xb1, 0x39, 0x3d, 0xc9, 0xf5, 0x76, 0x37, 0xd9, 0xe0, 0x8a, 0x80, 0xc1, 0xf1, 0x6c, 0x70, 0x8a, 0x80, 0x6d, 0x62, 0xb4, 0x00, 0x81, 0xbf, 0x20, 0xd9, 0x95, 0x37, 0x74, 0xb1, 0xe0, 0x17, 0x6a, 0xb8, 0xfb, 0x17, 0x00, 0xef, 0xb5, 0x05, 0x11, 0xe3, 0xa6, 0x0f, 0x1a, 0xe8, 0xa4, 0x17, 0x12, 0xe9, 0xa7, 0x05, 0x00, 0xf1, 0xa7, 0x02, 0x16, 0xef, 0xa6, 0x1e, 0x1a, 0xf9, 0xc7, 0x52, 0x51, 0xac, 0xf0, 0x44, 0x54, 0xb0, 0xfb, 0x50, 0x00, 0xb7, 0xf0, 0x40, 0x00, 0xa9, 0xf4, 0x59, 0x41, 0xaa, 0xfa, 0x59, 0x49, 0xba, 0xb5, 0x53, 0x41, 0xad, 0xf4, 0x81, 0xcf, 0xa8, 0xb4, 0xef, 0x07, 0xfc, 0xdc, 0x9a, 0x27, 0xe2, 0xd5, 0x81, 0x27, 0x88, 0x82, 0xcf, 0x35, 0x99, 0x8e, 0xdc, 0x3f, 0x92, 0x85, 0xde, 0x27, 0x9a, 0x84, 0xdd, 0x35, 0x88, 0x9c, 0xdd, 0x32, 0x9e, 0x83, 0xd6, 0x2e, 0x92, 0x94, 0x9c, 0x62, 0xc6, 0xc0, 0xcf, 0x65, 0xd1, 0xc0, 0x8a, 0x74, 0x92, 0x94, 0xde, 0x36, 0x99, 0x94, 0x86, 0x69, 0xcb, 0xd8, 0x9a, 0x63, 0xc1, 0xda, 0x88, 0x27, 0xcb, 0xdc, 0x8a, 0x64, 0xc3, 0xc7, 0x9a, 0x6a, 0x88, 0xc2, 0x8e, 0x6b, 0xdd, 0xd1, 0xd5, 0x27, 0x99, 0x8c, 0xcf};
+  webserver_sync_receive(&clients[0].data, (uint8_t *)text, 370);
 
   if(argnr != 5) {
     fprintf(stderr, "%s:%d: test #%d failed, expected %d got %d\n",
       __FUNCTION__, __LINE__, testnr+1, 4, argnr
+    );
+    exit(-1);
+  }
+
+  if(check != 1) {
+    fprintf(stderr, "%s:%d: test #%d failed, expected %d got %d\n",
+      __FUNCTION__, __LINE__, testnr+1, 1, check
     );
     exit(-1);
   }
