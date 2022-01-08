@@ -2032,9 +2032,10 @@ int websocket_read(struct webserver_t *client, unsigned char *buf, ssize_t buf_l
 uint8_t webserver_sync_receive(struct webserver_t *client, uint8_t *rbuffer, uint16_t size) {
   if(client->step == WEBSERVER_CLIENT_READ_HEADER) {
     if(http_parse_request(client, &rbuffer, &size) == 0) {
-      if(client->is_websocket == 1 && client->data.boundary != NULL) {
+      if(client->is_websocket == 1 && client->data.websockkey != NULL) {
         client->is_websocket = 1;
-        send_websocket_handshake(client, (char *)client->data.boundary);
+        client->lastping = millis();
+        send_websocket_handshake(client, (char *)client->data.websockkey);
         client->step = WEBSERVER_CLIENT_WEBSOCKET;
       }
       if(client->method == 1) {
@@ -2146,8 +2147,19 @@ err_t webserver_poll(void *arg, struct tcp_pcb *pcb) {
   uint8_t i = 0;
   for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
     if(clients[i].data.pcb == pcb) {
-      clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
-      webserver_client_close(&clients[i].data);
+      if(clients[i].data.is_websocket == 1) {
+        if((unsigned long)(millis() - clients[i].data.lastping) > WEBSERVER_CLIENT_PING_INTERVAL) {
+          websocket_send_header(&clients[i].data, WEBSOCKET_OPCODE_PING, 0);
+          clients[i].data.lastping = millis();
+        }
+      }
+      if((unsigned long)(millis() - clients[i].data.lastseen) > WEBSERVER_CLIENT_TIMEOUT) {
+  #ifdef ESP8266
+        Serial.printf("Timeout webserver client: %s:%d", clients[i].data.client->remoteIP().toString().c_str(), clients[i].data.client->remotePort());
+  #endif
+        clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
+        webserver_client_close(&clients[i].data);
+      }
       break;
     }
   }
@@ -2179,6 +2191,7 @@ void webserver_reset_client(struct webserver_t *client) {
   client->ptr = 0;
   client->route = 0;
   client->lastseen = 0;
+  client->lastping = 0;
   client->content = 0;
   client->is_websocket = 0;
   client->userdata = NULL;
@@ -2248,7 +2261,7 @@ err_t webserver_client(void *arg, tcp_pcb *pcb, err_t err) {
       //tcp_nagle_disable(pcb);
       tcp_recv(pcb, &webserver_async_receive);
       tcp_sent(pcb, &webserver_sent);
-      tcp_poll(pcb, &webserver_poll, (WEBSERVER_CLIENT_TIMEOUT/1000)*2);
+      tcp_poll(pcb, &webserver_poll, 1);
       break;
     }
   }
@@ -2263,6 +2276,13 @@ void webserver_loop(void) {
   for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
     if(clients[i].data.step == 0 || clients[i].data.async == 1) {
       continue;
+    }
+
+    if(clients[i].data.is_websocket == 1) {
+      if((unsigned long)(millis() - clients[i].data.lastping) > WEBSERVER_CLIENT_PING_INTERVAL) {
+        websocket_send_header(&clients[i].data, WEBSOCKET_OPCODE_PING, 0);
+        clients[i].data.lastping = millis();
+      }
     }
     if((unsigned long)(millis() - clients[i].data.lastseen) > WEBSERVER_CLIENT_TIMEOUT) {
 #ifdef ESP8266
