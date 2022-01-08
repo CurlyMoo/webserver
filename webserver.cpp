@@ -1546,7 +1546,7 @@ static int webserver_process_send(struct webserver_t *client) {
       tmp = &client->sendlist[x];
       if(tmp->type == 0) {
         #if WEBSERVER_SENDLIST_BUFSIZE > 0
-          memset(&tmp->data.fixed, 0, WEBSERVER_SENDLIST_BUFSIZE+1);
+          memset(&tmp->data.fixed, 0, WEBSERVER_SENDLIST_BUFSIZE);
         #endif
       }
       tmp->data.ptr = NULL;
@@ -1720,7 +1720,7 @@ void webserver_send_content(struct webserver_t *client, char *buf, uint16_t size
     node->data.fixed[x] = buf[x];
   }
 #else
-  if((node->data.ptr = malloc(size)) == NULL) {
+  if((node->data.ptr = malloc(size+1)) == NULL) {
   #ifdef ESP8266
     Serial.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
     ESP.restart();
