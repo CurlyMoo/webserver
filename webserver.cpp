@@ -1874,7 +1874,7 @@ static void send_websocket_handshake(struct webserver_t *client, const char *key
 
   sha1digest((uint8_t *)input, NULL, (uint8_t *)cpy, strlen(cpy));
 
-  if(Base64encode(encoded, input, 20) > 0) {  
+  if(Base64encode(encoded, input, 20) > 0) {
     uint16_t len = snprintf(NULL, 0,
       "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
       "Connection: Upgrade\r\n"
