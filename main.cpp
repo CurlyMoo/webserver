@@ -2694,6 +2694,8 @@ void test_websocket(void) {
     free(tmp->value);
     free(tmp);
   }
+
+  delete clients[0].data.client;
 }
 
 int main(void) {
