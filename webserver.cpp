@@ -2354,12 +2354,13 @@ void webserver_loop(void) {
         clients[i].data.totallen -= 16;
         webserver_process_send(&clients[i].data);
       } break;
-#ifdef ESP8266
       case WEBSERVER_CLIENT_CLOSE: {
+#ifdef ESP8266
         Serial.print("Closing webserver client: ");
         Serial.print(clients[i].data.client.remoteIP());
         Serial.print(":");
         Serial.println(clients[i].data.client.remotePort());
+#endif
         if(clients[i].data.callback != NULL) {
           clients[i].data.callback(&clients[i].data, NULL);
         }
@@ -2367,7 +2368,6 @@ void webserver_loop(void) {
         clients[i].data.client->stop();
         webserver_reset_client(&clients[i].data);
       } break;
-#endif
     }
   }
 
@@ -2398,7 +2398,6 @@ void webserver_loop(void) {
 #endif
 }
 
-#ifdef ESP8266
 int8_t webserver_start(int port, webserver_cb_t *callback, uint8_t async) {
   uint8_t i = 0;
 
@@ -2409,6 +2408,7 @@ int8_t webserver_start(int port, webserver_cb_t *callback, uint8_t async) {
       clients[i].data.async = 1;
     }
 
+#ifdef ESP8266
     async_server = tcp_new();
     if(async_server == NULL) {
       return -1;
@@ -2435,6 +2435,7 @@ int8_t webserver_start(int port, webserver_cb_t *callback, uint8_t async) {
     tcp_setprio(async_server, TCP_PRIO_MIN);
     tcp_accept(async_server, &webserver_client);
     tcp_arg(async_server, (void *)callback);
+#endif
   } else {
     rbuffer = (uint8_t *)malloc(WEBSERVER_READ_SIZE);
     if(rbuffer == NULL) {
@@ -2450,8 +2451,12 @@ int8_t webserver_start(int port, webserver_cb_t *callback, uint8_t async) {
       clients[i].data.callback = callback;
       clients[i].data.async = 0;
     }
+#ifdef ESP8266
     sync_server.begin(port);
+#endif
   }
+
+#ifdef ESP8266
   if(async == 1) {
     Serial.print("A-sync ");
   } else {
@@ -2459,6 +2464,6 @@ int8_t webserver_start(int port, webserver_cb_t *callback, uint8_t async) {
   }
   Serial.print("webserver server started at port: ");
   Serial.println(port);
+#endif
   return 0;
 }
-#endif

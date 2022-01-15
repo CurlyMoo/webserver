@@ -109,6 +109,7 @@ struct WiFiClient {
   int (*write_P)(const char *, int i);
   int (*available)();
   int (*connected)();
+  void (*stop)();
   int (*read)(uint8_t *buffer, int size);
 };
   #define PGM_P unsigned char *

@@ -38,6 +38,9 @@ static uint16_t headernr = 0;
 static uint16_t argnr = 0;
 static uint16_t done = 1;
 static uint8_t check = 1;
+static unsigned char *contents = NULL;
+static unsigned int readptr = 0;
+static unsigned int filelen = 0;
 
 struct webvalues_t {
   unsigned char *name;
@@ -1372,6 +1375,8 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
       check = 1;
       done = 0;
     } break;
+    case WEBSERVER_CLIENT_CLOSE: {
+    } break;
   }
   return 0;
 }
@@ -1679,87 +1684,6 @@ int file_get_contents(char *file, unsigned char **content) {
 	}
 	fclose(fp);
 	return bytes;
-}
-
-
-void test_receive_binary(void) {
-  uint16_t size = 0;
-  testnr = -1;
-
-  for(size=1;size<4096;size++) {
-    fprintf(stderr, "%s:%d: receive test #%d with buffer %d\r", __FUNCTION__, __LINE__, testnr+1, size);
-
-    memset(&clients[0], 0, sizeof(struct webserver_t));
-
-    uint32_t x = 0, len = 0, w = 0;
-
-    clients[0].data.callback = &webserver_cb;
-    clients[0].data.step = WEBSERVER_CLIENT_READ_HEADER;
-
-    unsigned char *contents = NULL;
-    len = file_get_contents("../heisha.txt", &contents);
-
-    /*
-     * Send request in chunks
-     */
-    for(x=0;x<len;x+=size) {
-      unsigned char *bar = NULL;
-      if(x+size > len) {
-        w = len-x;
-        bar = (unsigned char *)malloc(w+1);
-        memset(bar, 0, w+1);
-        memcpy(bar, &contents[x], w);
-      } else {
-        w = size;
-        bar = (unsigned char *)malloc(w+1);
-        memset(bar, 0, w+1);
-        memcpy(bar, &contents[x], w);
-      }
-      webserver_sync_receive(&clients[0].data, (uint8_t *)bar, w);
-
-      free(bar);
-    }
-
-    /* LCOV_EXCL_STOP*/
-
-    /*
-     * Check if all arguments came through
-     */
-    struct webvalues_t *tmp = webargs;
-    while(tmp) {
-      if(tmp->ptr != 501776) {
-        fprintf(stderr, "%s:%d: test #%d failed\n",
-          __FUNCTION__, __LINE__, testnr+1
-        );
-        exit(-1);
-      }
-      if(memcmp(tmp->value, &contents[712], 501776) != 0) {
-        fprintf(stderr, "%s:%d: test #%d failed\n",
-          __FUNCTION__, __LINE__, testnr+1
-        );
-        exit(-1);
-      }
-      tmp = tmp->next;
-    }
-
-    while(webargs) {
-      tmp = webargs;
-      webargs = webargs->next;
-      free(tmp->name);
-      free(tmp->value);
-      free(tmp);
-    }
-
-    while(webheader) {
-      tmp = webheader;
-      webheader = webheader->next;
-      free(tmp->name);
-      free(tmp->value);
-      free(tmp);
-    }
-    free(contents);
-  }
-  fprintf(stderr, "\n");
 }
 
 static unsigned char wsresponse[255] = {
@@ -2556,12 +2480,36 @@ int client_connected(void) {
 }
 
 int client_read(uint8_t *buf, int size) {
-  clients[1].data.step = WEBSERVER_CLIENT_WRITE;
+  if(testnr == -1 || testnr == -3) {
+    // uint16_t randNum = rand() % (size - 128 + 1) + 128;
+    uint16_t randNum = size;
+    uint16_t chunk = randNum;
+    if(readptr + randNum > filelen) {
+      chunk = filelen - readptr;
+    }
+    memcpy(buf, &contents[readptr], chunk);
+    readptr += chunk;
+    return chunk;
+  } else {
+    clients[1].data.step = WEBSERVER_CLIENT_WRITE;
+  }
   return 1;
 }
 
+void client_stop(void) {
+  done = 0;
+}
+
 int client_available(void) {
-  return 1;
+  if(testnr == -1) {
+    if(readptr < filelen) {
+      return 1;
+    } else {
+      return 0;
+    }
+  } else {
+    return 1;
+  }
 }
 
 void test_send(void) {
@@ -2579,6 +2527,7 @@ void test_send(void) {
   clients[1].data.client->available = client_available;
   clients[1].data.client->connected = client_connected;
   clients[1].data.client->read = client_read;
+  clients[1].data.client->stop = client_stop;
 
   webserver_cb(&clients[1].data, NULL);
 }
@@ -2601,6 +2550,7 @@ void test_websocket(void) {
   clients[0].data.client->available = client_available;
   clients[0].data.client->connected = client_connected;
   clients[0].data.client->read = client_read;
+  clients[0].data.client->stop = client_stop;
 
   char foo[] =
     "GET / HTTP/1.1\r\n"
@@ -2698,10 +2648,85 @@ void test_websocket(void) {
   delete clients[0].data.client;
 }
 
+void test_receive_binary(char *file, int nr, unsigned int conlen, int offset) {
+  uint16_t size = 0;
+  testnr = nr;
+
+  webserver_start(80, &webserver_cb, 0);
+
+  for(size=1;size<4096;size++) {
+    done = 1;
+    fprintf(stderr, "%s:%d: receive test #%d with buffer %d\r", __FUNCTION__, __LINE__, testnr+1, size);
+
+    memset(&clients[0], 0, sizeof(struct webserver_t));
+
+    clients[0].data.callback = &webserver_cb;
+    clients[0].data.step = WEBSERVER_CLIENT_READ_HEADER;
+
+    clients[0].data.client = new WiFiClient;
+    memset(clients[0].data.client, 0, sizeof(struct WiFiClient));
+    clients[0].data.client->write = client_write;
+    clients[0].data.client->write_P = client_write_P;
+    clients[0].data.client->available = client_available;
+    clients[0].data.client->connected = client_connected;
+    clients[0].data.client->read = client_read;
+    clients[0].data.client->stop = client_stop;
+
+    readptr = 0;
+    filelen = file_get_contents(file, &contents);
+
+    while(done) {
+      webserver_loop();
+    }
+
+    /*
+     * Check if all arguments came through
+     */
+    struct webvalues_t *tmp = webargs;
+    while(tmp) {
+      if(tmp->ptr != conlen) {
+        fprintf(stderr, "%s:%d: test #%d failed\n",
+          __FUNCTION__, __LINE__, testnr+1
+        );
+        exit(-1);
+      }
+      if(memcmp(tmp->value, &contents[offset], conlen) != 0) {
+        fprintf(stderr, "%s:%d: test #%d failed\n",
+          __FUNCTION__, __LINE__, testnr+1
+        );
+        exit(-1);
+      }
+      tmp = tmp->next;
+    }
+
+    while(webargs) {
+      tmp = webargs;
+      webargs = webargs->next;
+      free(tmp->name);
+      free(tmp->value);
+      free(tmp);
+    }
+
+    while(webheader) {
+      tmp = webheader;
+      webheader = webheader->next;
+      free(tmp->name);
+      free(tmp->value);
+      free(tmp);
+    }
+    free(contents);
+    delete clients[0].data.client;
+  }
+  fprintf(stderr, "\n");
+
+}
+
 int main(void) {
+  srand(time(NULL));
   test_receive();
   test_edge_case1();
-  test_receive_binary();
+  test_receive_binary("../heisha.bin", -1, 501776, 712);
+  test_receive_binary("../heisha1.bin", -3, 616672, 663);
   test_websocket();
   testnr = 0;
 
