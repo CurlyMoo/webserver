@@ -2727,7 +2727,9 @@ int main(void) {
   test_edge_case1();
   test_receive_binary("../heisha.bin", -1, 501776, 712);
   test_receive_binary("../heisha1.bin", -3, 616672, 663);
+  test_receive_binary("../heisha2.bin", -3, 630464, 789);
   test_websocket();
+
   testnr = 0;
 
   for(testnr=0;testnr<3;testnr++) {

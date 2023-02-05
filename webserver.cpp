@@ -1003,7 +1003,7 @@ int http_parse_multipart_body(struct webserver_t *client, unsigned char *buf, ui
 
             client->buffer[vlen] = '=';
 
-            memmove(&client->buffer[vlen+1], &client->buffer[pos], client->ptr-(pos-(vlen+1)));
+            memmove(&client->buffer[vlen+1], &client->buffer[pos], client->ptr-pos);
             client->readlen += (pos-(vlen+1));
             client->ptr -= (pos-(vlen+1));
             client->substep = 0;
