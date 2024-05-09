@@ -62,8 +62,6 @@
 
 void log_message(char *string);
 
-bool ending3dash = false;
-
 struct webserver_client_t clients[WEBSERVER_MAX_CLIENTS];
 #ifdef ESP8266
 static tcp_pcb *async_server = NULL;
