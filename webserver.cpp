@@ -112,26 +112,36 @@ int16_t urldecode(const unsigned char *src, int src_len, unsigned char *dst, int
 
 static int webserver_parse_post(struct webserver_t *client, uint16_t size) {
   struct arguments_t args;
-  unsigned char *ptrEnd = strnstr(client->buffer, "\r\n", client->ptr);
+
   unsigned char *ptrA = (unsigned char *)memchr(client->buffer, '=', size);
   unsigned char *ptrB = (unsigned char *)memchr(client->buffer, ' ', size);
   unsigned char *ptrC = (unsigned char *)memchr(client->buffer, '&', size);
-  unsigned char *ptrD = NULL;
+  unsigned char *ptrD = (unsigned char *)strnstr(client->buffer, "\r\n", client->ptr);
   unsigned char *ptrE = NULL;
+  unsigned char *ptrF = NULL;
+
   char c = '=';
   int16_t pos = 0;
-  int16_t posA = WEBSERVER_BUFFER_SIZE+1, posB = WEBSERVER_BUFFER_SIZE+1, posC = WEBSERVER_BUFFER_SIZE+1;
+  int16_t posA = WEBSERVER_BUFFER_SIZE+1, posB = WEBSERVER_BUFFER_SIZE+1;
+  int16_t posC = WEBSERVER_BUFFER_SIZE+1, posD = WEBSERVER_BUFFER_SIZE+1;
 
-  if((ptrA != NULL) && ((ptrEnd == NULL) || ((ptrEnd-client->buffer > ptrA-client->buffer)))) {
+  if(ptrD != NULL) {
+    posD = ptrD - client->buffer;
+  }
+  if(ptrA != NULL) {
     posA = ptrA - client->buffer;
-    ptrD = ptrA;
+    if((ptrD == NULL) || (posD > posA)) {
+      ptrE = ptrA;
+    }
   }
   if(ptrB != NULL) {
     posB = ptrB - client->buffer;
   }
-  if((ptrC != NULL) && ((ptrEnd == NULL) || ((ptrEnd-client->buffer > ptrC-client->buffer)))) {
+  if(ptrC != NULL) {
     posC = ptrC - client->buffer;
-    ptrE = ptrC;
+    if((ptrD == NULL) || (posD > posC)) {
+      ptrF = ptrC;
+    }
   }
 
   pos = MIN(posA, MIN(posB, posC));
@@ -312,7 +322,8 @@ static int webserver_parse_post(struct webserver_t *client, uint16_t size) {
         return 1;
       }
     }
-    if((client->ptr >= WEBSERVER_BUFFER_SIZE || ptrEnd != NULL) && strncmp((char *)&client->buffer[pos+1], "HTTP/1.1", 8) != 0) {
+
+    if((client->ptr >= WEBSERVER_BUFFER_SIZE || ptrD != NULL) && strncmp((char *)&client->buffer[pos+1], "HTTP/1.1", 8) != 0) {
       /*
        * GET end delimiter before HTTP/1.1
        */
@@ -429,7 +440,7 @@ static int webserver_parse_post(struct webserver_t *client, uint16_t size) {
       }
     }
 
-    if(ptrD == NULL && ptrE == NULL && ptrA != NULL && (posB == WEBSERVER_BUFFER_SIZE+1 || posB > 0)) {
+    if(ptrE == NULL && ptrF == NULL && ptrA != NULL && (posB == WEBSERVER_BUFFER_SIZE+1 || posB > 0)) {
       uint16_t pos1 = ptrA-client->buffer;
 
       int16_t pos2 = urldecode(client->buffer,
@@ -598,9 +609,9 @@ int8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *l
       }
     }
     if(client->substep == 4) {
-      unsigned char *ptrEnd = strnstr(client->buffer, "\r\n\r\n", client->ptr);
+      unsigned char *ptrEnd = (unsigned char *)strnstr(client->buffer, "\r\n\r\n", client->ptr);
       uint16_t posEnd = client->ptr;
-      if (ptrEnd != NULL) {
+      if(ptrEnd != NULL) {
         posEnd = (ptrEnd-client->buffer) + 4;
       } 
       unsigned char *ptr = (unsigned char *)memchr(client->buffer, ':', posEnd);
@@ -773,7 +784,7 @@ int http_parse_multipart_body(struct webserver_t *client, unsigned char *buf, ui
   uint16_t hasread = MIN(WEBSERVER_BUFFER_SIZE-client->ptr, len);
   uint16_t rpos = 0, loop = 1;
 
-  while((rpos < len) || ((loop == 1) && (client->ptr > 0))) { //do always first run with initial loop==1 because read buffer can have been already moved completly into client buffer
+  while((rpos < len) || ((loop == 1) && (client->ptr > 0))) {
     hasread = MIN(WEBSERVER_BUFFER_SIZE-client->ptr, len-rpos);
     memcpy(&client->buffer[client->ptr], &buf[rpos], hasread);
     client->ptr += hasread;
@@ -824,9 +835,11 @@ int http_parse_multipart_body(struct webserver_t *client, unsigned char *buf, ui
                   return 0;
                 } else {
                   // Error, content length does not match end boundary
-		  return -1;
+                  return -1;
                 }
               }
+            } else {
+              loop = 0;
             }
           } else if(client->ptr < WEBSERVER_BUFFER_SIZE) {
             loop = 0;
@@ -1015,7 +1028,7 @@ int http_parse_multipart_body(struct webserver_t *client, unsigned char *buf, ui
             client->substep = 0;
           } else if(client->ptr == WEBSERVER_BUFFER_SIZE) {
             uint8_t ending = 0;
-	    bool ending3dash = false;
+            uint8_t dash = 0;
             /*
              * Double check that the CR / LN don't belong
              * to the boundary delimiter.
@@ -1031,7 +1044,7 @@ int http_parse_multipart_body(struct webserver_t *client, unsigned char *buf, ui
             }
             if(strncmp((char *)&client->buffer[client->ptr-3], "\r\n-", 3) == 0) {
               ending = 3;
-	      ending3dash = true;
+              dash = 1;
             }
             if(client->substep == 8) {
               client->substep = 7;
@@ -1065,17 +1078,19 @@ int http_parse_multipart_body(struct webserver_t *client, unsigned char *buf, ui
                 client->buffer[pos+1] = '\r';
                 client->buffer[pos+2] = '\n';
                 client->buffer[pos+3] = '\r';
-                if (ending3dash) client->buffer[pos+3] = '-';
+                if(dash) {
+                  client->buffer[pos+3] = '-';
+                }
               }
               client->readlen += ((client->ptr-(pos+1))-ending);
               client->ptr = pos+1+ending;
-	      loop = 0;
+              loop = 0;
             } else {
               // error
               return -1;
             }
-	  } else {
-	      loop = 0;
+          } else {
+            loop = 0;
           }
         } break;
       }
