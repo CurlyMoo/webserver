@@ -1187,6 +1187,46 @@ struct unittest_t {
         "\r\n"
       }
     }
+  },
+  {
+    "POST",
+    "/",
+    "HTTP/1.1",
+    "----WebKitFormBoundaryr33oB2ai8vKFc8V1",
+    1,
+    11,
+    {
+      { "Host", "heishamonrulestest.local" },
+      { "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" },
+      { "Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7" },
+      { "Accept-Language", "en-US,en;q=0.9,nl-NL;q=0.8,nl;q=0.7,de;q=0.6" },
+      { "Accept-Encoding", "gzip, deflate" },
+      { "Content-Type", "multipart/form-data; boundary=----WebKitFormBoundaryr33oB2ai8vKFc8V1" },
+      { "Content-Length", "499" },
+      { "Cache-Control", "max-age=0" },
+      { "Connection", "keep-alive" },
+      { "Origin", "http://heishamonrulestest.local" },
+      { "Referer", "http://heishamonrulestest.local/rules" },
+      { "Upgrade-Insecure-Requests", "1" }
+    },
+    1,
+    {
+      { 0, "rules",
+        "on System#Boot then\r\n"
+        "settimer(1,10);\r\n"
+        "emd\r\n"
+        "\r\n"
+        "on timer=1 then\r\n"
+        "  settimer(1,10);\r\n"
+        "\r\n"
+        "  @SetCurves = concat('{zone1:{heat:{target:{high:', 35, '}}}}');\r\n"
+        "  print(concat('PrintTest = {zone1:{heat:{target:{high:', 35, '}}}}'));\r\n"
+        "  #globalTest = concat('{zone1:{heat:{target:{high:', 35, '}}}}');\r\n"
+        "  $localTest = concat('{zone1:{heat:{target:{high:', 35, '}}}}');\r\n"
+        "\r\n"
+        "end"
+      }
+    }
   }
 };
 
