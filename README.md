@@ -2,7 +2,7 @@
 
 ESP ready, high performant and low resources webserver library written in C.
 
-[![Coverage Status](https://coveralls.io/repos/github/CurlyMoo/webserver/badge.svg?branch=main)](https://coveralls.io/github/CurlyMoo/webserver?branch=main) [![Build Status](https://github.com/curlymoo/webserver/actions/workflows/coveralls.yml/badge.svg)]() [![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0) ![GitHub issues](https://img.shields.io/github/issues-raw/CurlyMoo/webserver) [![Donate](https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=info%40pilight%2eorg&lc=US&item_name=curlymoo&no_note=0&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHostedGuest)
+[![Coverage Status](https://coveralls.io/repos/github/CurlyMoo/webserver/badge.svg?branch=main)](https://coveralls.io/github/CurlyMoo/webserver?branch=main) [![Build Status](https://github.com/curlymoo/webserver/actions/workflows/default.yml/badge.svg)]() [![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0) ![GitHub issues](https://img.shields.io/github/issues-raw/CurlyMoo/webserver) [![Donate](https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=info%40pilight%2eorg&lc=US&item_name=curlymoo&no_note=0&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHostedGuest)
 
 ---
 ---
