@@ -2127,7 +2127,7 @@ err_t webserver_poll(void *arg, struct tcp_pcb *pcb) {
   for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
     if(clients[i].data.pcb == pcb) {
       if(clients[i].data.is_websocket == 1) {
-        if((unsigned long)(millis() - clients[i].data.lastping) > WEBSERVER_CLIENT_PING_INTERVAL) {
+        if(clients[i].data.async == 0 && (unsigned long)(millis() - clients[i].data.lastping) > WEBSERVER_CLIENT_PING_INTERVAL) {
           websocket_send_header(&clients[i].data, WEBSOCKET_OPCODE_PING, 0);
           clients[i].data.lastping = millis();
         }
