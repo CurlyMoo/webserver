@@ -359,8 +359,16 @@ static int webserver_parse_post(struct webserver_t *client, uint16_t size) {
                     (pos1 - (pos + 1)) + 1,
                     &client->buffer[pos+1],
                     (pos1 - (pos + 1)) + 1, 1);
-
-          client->buffer[pos1] = 0;
+          if(pos3 > -1) {
+            /*
+             * If the data was urlencoded, the final data
+             * has a smaller length. Therefor the 0 delimiter
+             * must be placed to that new position.
+             */
+            client->buffer[pos+pos3] = 0;
+          } else {
+            client->buffer[pos1] = 0;
+          }
         }
 
         args.name = &client->buffer[0];
@@ -382,12 +390,21 @@ static int webserver_parse_post(struct webserver_t *client, uint16_t size) {
         }
 
         if(pos3 > -1) {
-          client->buffer[pos3-1] = d;
-          client->buffer[pos] = d;
-          pos1 = pos3;
+          /*
+           * If the data was urlencoded, the final data is
+           * has a smaller length. Therefor, the data following
+           * the original urlencoded data must be moved forward.
+           * The size that was read until now must be decreased
+           * as well.
+           */
+          memmove(&client->buffer[pos+pos3], &client->buffer[pos1], client->ptr-(pos3+pos));
+          size -= (pos1-(pos3+pos));
+          pos1 = (pos+pos3);
+          client->buffer[pos1] = d;
         } else {
           client->buffer[pos1] = d;
         }
+
         if(d == '&') {
           pos1++;
         }
@@ -395,7 +412,6 @@ static int webserver_parse_post(struct webserver_t *client, uint16_t size) {
         memmove(&client->buffer[0], &client->buffer[pos1], size-(pos1));
         client->ptr = size-(pos1);
         client->buffer[client->ptr] = 0;
-
       } else {
         int16_t pos2 = urldecode(client->buffer,
                   pos + 1,
