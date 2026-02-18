@@ -1786,11 +1786,11 @@ int client_write(unsigned char *buf, int size) {
     switch(argnr++) {
       case 0: {
         if(memcmp((char *)buf,
-          "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
+          "HTTP/1.1 101 Switching Protocols\r\n"
           "Connection: Upgrade\r\n"
           "Upgrade: websocket\r\n"
           "Sec-WebSocket-Accept: I0Py0AMLWSZtp8aSeQd+j/A2xMw=\r\n\r\n",
-          size) != 0 || size != 139) {
+          size) != 0 || size != 129) {
           fprintf(stderr, "%s:%d: test #%d failed\n",
             __FUNCTION__, __LINE__, testnr+1
           );
