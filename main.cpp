@@ -1587,8 +1587,8 @@ void test_receive(void) {
             if(unittest[testnr].args[z].type == 0) {
               len += sprintf(&out[len], "Content-Disposition: form-data; name=\"%s\"\r\n", unittest[testnr].args[z].name);
             } else if(unittest[testnr].args[z].type == 1) {
-              len += sprintf(&out[len], "Content-Disposition: form-data; name=\"%s\"; filename=\"%s.txt\"\r\n", unittest[testnr].args[z].name, unittest[testnr].args[z].name);
               len += sprintf(&out[len], "Content-Type: text/plain\r\n");
+              len += sprintf(&out[len], "Content-Disposition: form-data; name=\"%s\"; filename=\"%s.txt\"\r\n", unittest[testnr].args[z].name, unittest[testnr].args[z].name);
             }
             len += sprintf(&out[len], "\r\n");
             len += sprintf(&out[len], "%s\r\n", unittest[testnr].args[z].value);
