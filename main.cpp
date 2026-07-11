@@ -2769,17 +2769,19 @@ void test_receive_binary(char *file, int nr, unsigned int conlen, int offset) {
      */
     struct webvalues_t *tmp = webargs;
     while(tmp) {
-      if(tmp->ptr != conlen) {
-        fprintf(stderr, "%s:%d: test #%d failed\n",
-          __FUNCTION__, __LINE__, testnr+1
-        );
-        exit(-1);
-      }
-      if(memcmp(tmp->value, &contents[offset], conlen) != 0) {
-        fprintf(stderr, "%s:%d: test #%d failed\n",
-          __FUNCTION__, __LINE__, testnr+1
-        );
-        exit(-1);
+      if(strcmp((char *)tmp->name, "firmware") == 0) {
+        if(tmp->ptr != conlen) {
+          fprintf(stderr, "%s:%d: test #%d failed: firmware len %u != %u\n",
+            __FUNCTION__, __LINE__, testnr+1, tmp->ptr, conlen
+          );
+          exit(-1);
+        }
+        if(memcmp(tmp->value, &contents[offset], conlen) != 0) {
+          fprintf(stderr, "%s:%d: test #%d failed: firmware content mismatch\n",
+            __FUNCTION__, __LINE__, testnr+1
+          );
+          exit(-1);
+        }
       }
       tmp = tmp->next;
     }
@@ -2813,6 +2815,12 @@ int main(void) {
   test_receive_binary("../heisha.bin", -1, 501776, 712);
   test_receive_binary("../heisha1.bin", -3, 616672, 663);
   test_receive_binary("../heisha2.bin", -3, 630464, 789);
+  // Synthetic two-field variant of heisha.bin (an extra empty "md5" field
+  // appended after "firmware") - regression test for a double-counting bug
+  // in the multipart parser (cases 4/6/0) that only manifests when a
+  // request has more than one field: the original single-field captures
+  // above never exercise the field-transition path where it lived.
+  test_receive_binary("../heisha_md5.bin", -1, 501776, 712);
   test_websocket();
 
   testnr = 0;
