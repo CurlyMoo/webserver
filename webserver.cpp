@@ -1944,18 +1944,23 @@ int8_t webserver_send(struct webserver_t *client, uint16_t code, char *mimetype,
 
     client->chunked = 1;
     i = snprintf_P((char *)p, sizeof(buffer), PSTR("HTTP/1.1 %d %s\r\n"), code, code_to_text(code));
+    i = webserver_clamp_offset(i, sizeof(buffer));
     if(client->callback != NULL) {
       client->step = WEBSERVER_CLIENT_CREATE_HEADER;
       struct header_t header;
       header.buffer = &p[i];
       header.ptr = i;
 
-      if(client->callback(client, &header) == -1) {
+      int8_t cbret = client->callback(client, &header);
+      header.ptr = webserver_clamp_offset(header.ptr, sizeof(buffer));
+      if(cbret == -1) {
         if(strstr_P((char *)&p[i], PSTR("\r\n\r\n")) == NULL) {
           if(strstr_P((char *)&p[i], PSTR("\r\n")) != NULL) {
             header.ptr += snprintf((char *)&p[header.ptr], sizeof(buffer)-header.ptr, PSTR("\r\n"));
+            header.ptr = webserver_clamp_offset(header.ptr, sizeof(buffer));
           } else {
             header.ptr += snprintf((char *)&p[header.ptr], sizeof(buffer)-header.ptr, PSTR("\r\n\r\n"));
+            header.ptr = webserver_clamp_offset(header.ptr, sizeof(buffer));
           }
         }
         client->step = WEBSERVER_CLIENT_WRITE;
@@ -1964,14 +1969,19 @@ int8_t webserver_send(struct webserver_t *client, uint16_t code, char *mimetype,
       }
       if(header.ptr > i && strstr_P((char *)&p[i], PSTR("\r\n")) == NULL) {
         header.ptr += snprintf((char *)&p[header.ptr], sizeof(buffer)-header.ptr, PSTR("\r\n"));
+        header.ptr = webserver_clamp_offset(header.ptr, sizeof(buffer));
       }
       i = header.ptr;
       client->step = WEBSERVER_CLIENT_WRITE;
     }
 
     i += snprintf((char *)&p[i], sizeof(buffer)-i, PSTR("Keep-Alive: timeout=15, max=100\r\n"));
+
+    i = webserver_clamp_offset(i, sizeof(buffer));
     i += snprintf((char *)&p[i], sizeof(buffer)-i, PSTR("Content-Type: %s\r\n"), mimetype);
+    i = webserver_clamp_offset(i, sizeof(buffer));
     i += snprintf((char *)&p[i], sizeof(buffer)-i, PSTR("Transfer-Encoding: chunked\r\n\r\n"));
+    i = webserver_clamp_offset(i, sizeof(buffer));
 
 done:
     if(client->async == 1) {
