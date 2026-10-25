@@ -154,11 +154,11 @@ static int16_t webserver_safe_write(struct webserver_t *client, const uint8_t *b
 #if defined(ESP32)
   return web_tx_enqueue(client, buf, len);
 #else
-  return client->client->write(buf, len);
+  return client->client->write((uint8_t *)buf, len);
 #endif
 }
 
-static int16_t webserver_safe_write_P(struct webserver_t *client, PGM_P buf, uint16_t len) {
+static int16_t webserver_safe_write_P(struct webserver_t *client, const void *buf, uint16_t len) {
 #if defined(ESP32)
   return web_tx_enqueue(client, (const uint8_t *)buf, len);
 #else
