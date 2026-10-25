@@ -161,6 +161,13 @@ typedef struct webserver_t {
   uint8_t port;
   unsigned long lastseen;
   unsigned long lastping;
+#if defined(ESP32)
+  // Buffered HTTP TX, flushed incrementally from webserver_loop().
+  uint8_t *tx_data;
+  uint16_t tx_used;
+  uint16_t tx_sent;
+  unsigned long tx_last_progress;
+#endif
   uint8_t is_websocket:1;
   uint8_t reqtype:1;
   uint8_t async:1;
