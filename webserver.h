@@ -167,6 +167,7 @@ typedef struct webserver_t {
   uint16_t tx_used;
   uint16_t tx_sent;
   unsigned long tx_last_progress;
+  uint8_t tx_failed;
 #endif
   uint8_t is_websocket:1;
   uint8_t reqtype:1;
