@@ -2530,11 +2530,15 @@ void webserver_loop(void) {
     }
 #endif
 
-    if(clients[i].data.is_websocket == 1) {
-      if(clients[i].data.async == 0 && (unsigned long)(millis() - clients[i].data.lastseen) > WEBSERVER_CLIENT_TIMEOUT) {
-        websocket_send_header(&clients[i].data, WEBSOCKET_OPCODE_PING, 0);
-        clients[i].data.lastping = millis();
-      }
+    // Send WebSocket keepalive PINGs before the inactivity deadline.
+    // The previous implementation sent its first PING only *at* the
+    // client timeout and then closed the socket in the same iteration,
+    // never allowing the browser's PONG to update lastseen.
+    if(clients[i].data.is_websocket == 1 &&
+       clients[i].data.step != WEBSERVER_CLIENT_CLOSE &&
+       (unsigned long)(millis() - clients[i].data.lastping) > WEBSERVER_CLIENT_PING_INTERVAL) {
+      websocket_send_header(&clients[i].data, WEBSOCKET_OPCODE_PING, 0);
+      clients[i].data.lastping = millis();
     }
     if((unsigned long)(millis() - clients[i].data.lastseen) > WEBSERVER_CLIENT_TIMEOUT) {
 #if defined(ESP8266) || defined(ESP32)
@@ -2650,6 +2654,12 @@ void webserver_loop(void) {
 
           clients[i].data.client->setNoDelay(true);
           clients[i].data.client->setTimeout(5000);
+
+          // Synchronous clients need their own address/port populated too.
+          strncpy(clients[i].data.ip, clients[i].data.client->remoteIP().toString().c_str(),
+                  sizeof(clients[i].data.ip) - 1);
+          clients[i].data.ip[sizeof(clients[i].data.ip) - 1] = '\0';
+          clients[i].data.port = clients[i].data.client->remotePort();
 
           Serial.print("New webserver client: ");
           Serial.print(clients[i].data.ip);
