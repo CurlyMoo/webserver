@@ -158,7 +158,7 @@ typedef struct webserver_t {
   tcp_pcb *pcb;
   WiFiClient *client;
   char ip[17];
-  uint8_t port;
+  uint16_t port;
   unsigned long lastseen;
   unsigned long lastping;
 #if defined(ESP32)
