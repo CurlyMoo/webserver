@@ -1734,6 +1734,7 @@ void webserver_send_content(struct webserver_t *client, char *buf, uint16_t size
     ESP.restart();
     exit(-1);
   #endif
+  /*LCOV_EXCL_STOP*/
   }
 #else
   uint8_t i = 0;
