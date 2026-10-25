@@ -42,5 +42,5 @@ jobs:
           lcov -c -d CMakeFiles/start.dir -o coverage.info
           lcov -r coverage.info '/usr/include/*' '*main.cpp' -o coverage-filtered.info
           lcov --list coverage-filtered.info
-          genhtml coverage-filtered.info
+          genhtml coverage-filtered.info --output-directory coverage-html
           coveralls-lcov --repo-token ${{ secrets.COVERALLS }} coverage.info
