@@ -89,9 +89,11 @@ static uint8_t web_tx_pool[WEBSERVER_MAX_CLIENTS][WEB_TX_CAPACITY];
 static uint8_t web_tx_busy[WEBSERVER_MAX_CLIENTS] = {0};
 
 static bool web_tx_acquire(struct webserver_t *client) {
-  if (client->tx_data != NULL) return true;
-  for (uint8_t i = 0; i < WEBSERVER_MAX_CLIENTS; i++) {
-    if (!web_tx_busy[i]) {
+  if(client->tx_data != NULL) {
+    return true;
+  }
+  for(uint8_t i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
+    if(!web_tx_busy[i]) {
       web_tx_busy[i] = 1;
       client->tx_data = web_tx_pool[i];
       client->tx_used = client->tx_sent = 0;
@@ -103,9 +105,11 @@ static bool web_tx_acquire(struct webserver_t *client) {
 }
 
 static void web_tx_release(struct webserver_t *client) {
-  if (client->tx_data == NULL) return;
-  for (uint8_t i = 0; i < WEBSERVER_MAX_CLIENTS; i++) {
-    if (client->tx_data == web_tx_pool[i]) {
+  if(client->tx_data == NULL) {
+    return;
+  }
+  for(uint8_t i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
+    if(client->tx_data == web_tx_pool[i]) {
       web_tx_busy[i] = 0;
       break;
     }
@@ -117,21 +121,23 @@ static const uint16_t WEB_TX_FLUSH_LIMIT = 1500;
 static const uint32_t WEB_TX_STALL_TIMEOUT_MS = 5000;
 
 static int16_t web_tx_enqueue(struct webserver_t *client, const uint8_t *buf, uint16_t len) {
-  if (len == 0) return 0;
-  if (!web_tx_acquire(client)) {
+  if(len == 0) {
+    return 0;
+  }
+  if(!web_tx_acquire(client)) {
     Serial.println("WEB TX buffer unavailable; closing client");
     client->tx_failed = 1;
     client->step = WEBSERVER_CLIENT_CLOSE;
     return -1;
   }
-  if ((uint32_t)client->tx_used + len > WEB_TX_CAPACITY) {
+  if((uint32_t)client->tx_used + len > WEB_TX_CAPACITY) {
     Serial.printf("WEB TX queue overflow queued=%u new=%u; closing client\n",
       (unsigned int)client->tx_used, (unsigned int)len);
     client->tx_failed = 1;
     client->step = WEBSERVER_CLIENT_CLOSE;
     return -1;
   }
-  if (client->tx_used == client->tx_sent) {
+  if(client->tx_used == client->tx_sent) {
     client->tx_used = client->tx_sent = 0;
     client->tx_last_progress = millis();
   }
@@ -141,9 +147,11 @@ static int16_t web_tx_enqueue(struct webserver_t *client, const uint8_t *buf, ui
 }
 
 static bool web_tx_flush(struct webserver_t *client) {
-  if (client->tx_used == client->tx_sent) return true;
+  if(client->tx_used == client->tx_sent) {
+    return true;
+  }
   const int fd = client->client->fd();
-  if (fd < 0) {
+  if(fd < 0) {
     client->step = WEBSERVER_CLIENT_CLOSE;
     client->tx_used = client->tx_sent = 0;
     return true;
@@ -151,21 +159,23 @@ static bool web_tx_flush(struct webserver_t *client) {
   const uint16_t left = client->tx_used - client->tx_sent;
   const uint16_t attempt = left < WEB_TX_FLUSH_LIMIT ? left : WEB_TX_FLUSH_LIMIT;
   const int n = lwip_send(fd, client->tx_data + client->tx_sent, attempt, MSG_DONTWAIT);
-  if (n > 0) {
+  if(n > 0) {
     client->tx_sent += (uint16_t)n;
     client->tx_last_progress = millis();
-    if (client->is_websocket == 0) client->lastseen = millis();
-  } else if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR && errno != ENOMEM) {
+    if(client->is_websocket == 0) {
+      client->lastseen = millis();
+    }
+  } else if(n < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR && errno != ENOMEM) {
     Serial.printf("WEB TX socket error errno=%d; closing client\n", errno);
     client->step = WEBSERVER_CLIENT_CLOSE;
     client->tx_used = client->tx_sent = 0;
     return true;
   }
-  if (client->tx_sent == client->tx_used) {
+  if(client->tx_sent == client->tx_used) {
     client->tx_sent = client->tx_used = 0;
     return true;
   }
-  if ((uint32_t)(millis() - client->tx_last_progress) > WEB_TX_STALL_TIMEOUT_MS) {
+  if((uint32_t)(millis() - client->tx_last_progress) > WEB_TX_STALL_TIMEOUT_MS) {
     Serial.printf("WEB TX stalled for %lu ms remaining=%u; closing client\n",
       (unsigned long)(millis() - client->tx_last_progress),
       (unsigned int)(client->tx_used - client->tx_sent));
@@ -1529,7 +1539,7 @@ static int webserver_process_send(struct webserver_t *client) {
         }
       }
         // Do not continue sending a response after staging has failed.
-        if (client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
     }
     i += n;
   }
@@ -1567,7 +1577,7 @@ static int webserver_process_send(struct webserver_t *client) {
                 }
               }
         // Do not continue sending a response after staging has failed.
-        if (client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
             }
           } else {
             if(client->async == 1) {
@@ -1579,7 +1589,7 @@ static int webserver_process_send(struct webserver_t *client) {
                 }
               }
         // Do not continue sending a response after staging has failed.
-        if (client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
             }
           }
           i += tmp->size;
@@ -1625,7 +1635,7 @@ static int webserver_process_send(struct webserver_t *client) {
                 }
               }
         // Do not continue sending a response after staging has failed.
-        if (client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
             }
           } else {
             if(client->async == 1) {
@@ -1637,7 +1647,7 @@ static int webserver_process_send(struct webserver_t *client) {
                 }
               }
         // Do not continue sending a response after staging has failed.
-        if (client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
             }
           }
           i += client->totallen;
@@ -1663,7 +1673,7 @@ static int webserver_process_send(struct webserver_t *client) {
               }
             }
         // Do not continue sending a response after staging has failed.
-        if (client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
           }
         } else {
           if(client->async == 1) {
@@ -1675,7 +1685,7 @@ static int webserver_process_send(struct webserver_t *client) {
               }
             }
         // Do not continue sending a response after staging has failed.
-        if (client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
           }
         }
         i += (tmp->size-client->ptr);
@@ -1720,7 +1730,7 @@ static int webserver_process_send(struct webserver_t *client) {
               }
             }
         // Do not continue sending a response after staging has failed.
-        if (client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
           }
         } else {
           if(client->async == 1) {
@@ -1732,7 +1742,7 @@ static int webserver_process_send(struct webserver_t *client) {
               }
             }
         // Do not continue sending a response after staging has failed.
-        if (client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
           }
         }
         client->ptr += client->totallen;
@@ -1749,7 +1759,7 @@ static int webserver_process_send(struct webserver_t *client) {
           }
         }
         // Do not continue sending a response after staging has failed.
-        if (client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
       }
     }
   }
@@ -1799,7 +1809,7 @@ static int webserver_process_send(struct webserver_t *client) {
             }
           }
         // Do not continue sending a response after staging has failed.
-        if (client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
         }
         i += 5;
       } else if(client->is_websocket == 0) {
@@ -1812,7 +1822,7 @@ static int webserver_process_send(struct webserver_t *client) {
             }
           }
         // Do not continue sending a response after staging has failed.
-        if (client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
         }
         i += 4;
       }
@@ -2517,15 +2527,15 @@ void webserver_loop(void) {
 #if defined(ESP32)
     // A previous staging failure must remain fatal even when callbacks
     // have overwritten the client's step after an unsuccessful enqueue.
-    if (clients[i].data.tx_failed) {
+    if(clients[i].data.tx_failed) {
       clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
       clients[i].data.tx_used = clients[i].data.tx_sent = 0;
     }
     // Flush pending bytes before generating another HTTP sendlist batch.
     // A CLOSE response must be drained before the client is stopped.
-    if (clients[i].data.tx_used != clients[i].data.tx_sent) {
+    if(clients[i].data.tx_used != clients[i].data.tx_sent) {
       const bool drained = web_tx_flush(&clients[i].data);
-      if (!drained || clients[i].data.step == WEBSERVER_CLIENT_CLOSE) continue;
+      if(!drained || clients[i].data.step == WEBSERVER_CLIENT_CLOSE) continue;
       // Once drained, only stage the next batch; do not send it here.
     }
 #endif
