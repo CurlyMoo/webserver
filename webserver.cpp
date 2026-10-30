@@ -92,7 +92,7 @@ static uint8_t web_tx_busy[WEBSERVER_MAX_CLIENTS] = {0};
 
 static int8_t web_tx_acquire(struct webserver_t *client) {
   if(client->tx_data != NULL) {
-    return true;
+    return 1;
   }
   for(uint8_t i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
     if(web_tx_busy[i] == 0) {
@@ -101,10 +101,10 @@ static int8_t web_tx_acquire(struct webserver_t *client) {
       client->tx_used = 0;
       client->tx_sent = 0;
       client->tx_last_progress = millis();
-      return true;
+      return 1;
     }
   }
-  return false;
+  return 0;
 }
 
 static void web_tx_release(struct webserver_t *client) {
@@ -150,14 +150,14 @@ static int32_t web_tx_enqueue(struct webserver_t *client, const uint8_t *buf, ui
 
 static int8_t web_tx_flush(struct webserver_t *client) {
   if(client->tx_used == client->tx_sent) {
-    return true;
+    return 1;
   }
   int fd = client->client->fd();
   if(fd < 0) {
     client->step = WEBSERVER_CLIENT_CLOSE;
     client->tx_used = 0;
     client->tx_sent = 0;
-    return true;
+    return 1;
   }
   uint16_t left = client->tx_used - client->tx_sent;
   uint16_t attempt = left < WEB_TX_FLUSH_LIMIT ? left : WEB_TX_FLUSH_LIMIT;
@@ -173,12 +173,12 @@ static int8_t web_tx_flush(struct webserver_t *client) {
     client->step = WEBSERVER_CLIENT_CLOSE;
     client->tx_used = 0;
     client->tx_sent = 0;
-    return true;
+    return 1;
   }
   if(client->tx_sent == client->tx_used) {
     client->tx_sent = 0;
     client->tx_used = 0;
-    return true;
+    return 1;
   }
   if((uint32_t)(millis() - client->tx_last_progress) > WEB_TX_STALL_TIMEOUT_MS) {
     Serial.printf("WEB TX stalled for %lu ms remaining=%u; closing client\n",
@@ -187,9 +187,9 @@ static int8_t web_tx_flush(struct webserver_t *client) {
     client->step = WEBSERVER_CLIENT_CLOSE;
     client->tx_used = 0;
     client->tx_sent = 0;
-    return true;
+    return 1;
   }
-  return false;
+  return 0;
 }
 #endif
 
