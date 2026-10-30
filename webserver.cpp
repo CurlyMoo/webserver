@@ -1548,7 +1548,7 @@ static int webserver_process_send(struct webserver_t *client) {
       if(client->step == WEBSERVER_CLIENT_CLOSE) {
         return -1;
       }
-      }
+    }
     i += n;
   }
 
@@ -1588,7 +1588,7 @@ static int webserver_process_send(struct webserver_t *client) {
               if(client->step == WEBSERVER_CLIENT_CLOSE) {
                 return -1;
               }
-              }
+            }
           } else {
             if(client->async == 1) {
               tcp_write(client->pcb, &((unsigned char *)tmp->data.ptr)[client->ptr], tmp->size, TCP_WRITE_FLAG_MORE);
@@ -1602,7 +1602,7 @@ static int webserver_process_send(struct webserver_t *client) {
               if(client->step == WEBSERVER_CLIENT_CLOSE) {
                 return -1;
               }
-              }
+            }
           }
           i += tmp->size;
           client->ptr += tmp->size;
@@ -1650,7 +1650,7 @@ static int webserver_process_send(struct webserver_t *client) {
               if(client->step == WEBSERVER_CLIENT_CLOSE) {
                 return -1;
               }
-              }
+            }
           } else {
             if(client->async == 1) {
               tcp_write(client->pcb, &((unsigned char *)tmp->data.ptr)[client->ptr], client->totallen, TCP_WRITE_FLAG_MORE);
@@ -1664,7 +1664,7 @@ static int webserver_process_send(struct webserver_t *client) {
               if(client->step == WEBSERVER_CLIENT_CLOSE) {
                 return -1;
               }
-              }
+            }
           }
           i += client->totallen;
           client->ptr += client->totallen;
@@ -1692,7 +1692,7 @@ static int webserver_process_send(struct webserver_t *client) {
             if(client->step == WEBSERVER_CLIENT_CLOSE) {
               return -1;
             }
-            }
+          }
         } else {
           if(client->async == 1) {
             tcp_write(client->pcb, &((unsigned char *)tmp->data.ptr)[client->ptr], (tmp->size-client->ptr), TCP_WRITE_FLAG_MORE);
@@ -1706,7 +1706,7 @@ static int webserver_process_send(struct webserver_t *client) {
             if(client->step == WEBSERVER_CLIENT_CLOSE) {
               return -1;
             }
-            }
+          }
         }
         i += (tmp->size-client->ptr);
         client->totallen -= (tmp->size-client->ptr);
@@ -1753,7 +1753,7 @@ static int webserver_process_send(struct webserver_t *client) {
             if(client->step == WEBSERVER_CLIENT_CLOSE) {
               return -1;
             }
-            }
+          }
         } else {
           if(client->async == 1) {
             tcp_write(client->pcb, &((unsigned char *)tmp->data.ptr)[client->ptr], client->totallen, TCP_WRITE_FLAG_MORE);
@@ -1767,7 +1767,7 @@ static int webserver_process_send(struct webserver_t *client) {
             if(client->step == WEBSERVER_CLIENT_CLOSE) {
               return -1;
             }
-            }
+          }
         }
         client->ptr += client->totallen;
         client->totallen = 0;
@@ -1786,7 +1786,7 @@ static int webserver_process_send(struct webserver_t *client) {
         if(client->step == WEBSERVER_CLIENT_CLOSE) {
           return -1;
         }
-        }
+      }
     }
   }
 
@@ -1838,7 +1838,7 @@ static int webserver_process_send(struct webserver_t *client) {
           if(client->step == WEBSERVER_CLIENT_CLOSE) {
             return -1;
           }
-          }
+        }
         i += 5;
       } else if(client->is_websocket == 0) {
         if(client->async == 1) {
@@ -1853,7 +1853,7 @@ static int webserver_process_send(struct webserver_t *client) {
           if(client->step == WEBSERVER_CLIENT_CLOSE) {
             return -1;
           }
-          }
+        }
         i += 4;
       }
       if(client->is_websocket == 0) {
