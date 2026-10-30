@@ -80,7 +80,7 @@ static uint8_t *rbuffer = NULL;
   wire order and resume delivery across webserver_loop() iterations, without
   blocking the main loop on a slow receiver.
 */
-#if defined(ESP32)
+#ifdef ESP32
 #include "lwip/sockets.h"
 #include <errno.h>
 // One fixed staging buffer for each possible client (no per-request malloc/free).
@@ -1455,7 +1455,7 @@ static uint16_t webserver_create_header(struct webserver_t *client, uint16_t cod
     tcp_write(client->pcb, &buffer, i, 0);
     tcp_output(client->pcb);
   } else {
-    if(webserver_safe_write(client,buffer, i) > 0) {
+    if(webserver_safe_write(client, buffer, i) > 0) {
       if(client->is_websocket == 0) {
         client->lastseen = millis();
       }
@@ -1533,13 +1533,15 @@ static int webserver_process_send(struct webserver_t *client) {
     if(client->async == 1) {
       tcp_write(client->pcb, chunk_size, n, 0);
     } else {
-      if(webserver_safe_write(client,chunk_size, n) > 0) {
+      if(webserver_safe_write(client, chunk_size, n) > 0) {
         if(client->is_websocket == 0) {
           client->lastseen = millis();
         }
       }
-        // Do not continue sending a response after staging has failed.
-        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        /* Do not continue sending a response after staging has failed. */
+        if(client->step == WEBSERVER_CLIENT_CLOSE) {
+          return -1;
+        }
     }
     i += n;
   }
@@ -1571,25 +1573,29 @@ static int webserver_process_send(struct webserver_t *client) {
             if(client->async == 1) {
               tcp_write(client->pcb, cpy, tmp->size, TCP_WRITE_FLAG_MORE);
             } else {
-              if(webserver_safe_write(client,cpy, tmp->size) > 0) {
+              if(webserver_safe_write(client, cpy, tmp->size) > 0) {
                 if(client->is_websocket == 0) {
                   client->lastseen = millis();
                 }
               }
-        // Do not continue sending a response after staging has failed.
-        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        /* Do not continue sending a response after staging has failed. */
+        if(client->step == WEBSERVER_CLIENT_CLOSE) {
+          return -1;
+        }
             }
           } else {
             if(client->async == 1) {
               tcp_write(client->pcb, &((unsigned char *)tmp->data.ptr)[client->ptr], tmp->size, TCP_WRITE_FLAG_MORE);
             } else {
-              if(webserver_safe_write(client,&((unsigned char *)tmp->data.ptr)[client->ptr], tmp->size) > 0) {
+              if(webserver_safe_write(client, &((unsigned char *)tmp->data.ptr)[client->ptr], tmp->size) > 0) {
                 if(client->is_websocket == 0) {
                   client->lastseen = millis();
                 }
               }
-        // Do not continue sending a response after staging has failed.
-        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        /* Do not continue sending a response after staging has failed. */
+        if(client->step == WEBSERVER_CLIENT_CLOSE) {
+          return -1;
+        }
             }
           }
           i += tmp->size;
@@ -1629,25 +1635,29 @@ static int webserver_process_send(struct webserver_t *client) {
             if(client->async == 1) {
               tcp_write(client->pcb, cpy, client->totallen, TCP_WRITE_FLAG_MORE);
             } else {
-              if(webserver_safe_write(client,cpy, client->totallen) > 0) {
+              if(webserver_safe_write(client, cpy, client->totallen) > 0) {
                 if(client->is_websocket == 0) {
                   client->lastseen = millis();
                 }
               }
-        // Do not continue sending a response after staging has failed.
-        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        /* Do not continue sending a response after staging has failed. */
+        if(client->step == WEBSERVER_CLIENT_CLOSE) {
+          return -1;
+        }
             }
           } else {
             if(client->async == 1) {
               tcp_write(client->pcb, &((unsigned char *)tmp->data.ptr)[client->ptr], client->totallen, TCP_WRITE_FLAG_MORE);
             } else {
-              if(webserver_safe_write(client,&((unsigned char *)tmp->data.ptr)[client->ptr], client->totallen) > 0) {
+              if(webserver_safe_write(client, &((unsigned char *)tmp->data.ptr)[client->ptr], client->totallen) > 0) {
                 if(client->is_websocket == 0) {
                   client->lastseen = millis();
                 }
               }
-        // Do not continue sending a response after staging has failed.
-        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        /* Do not continue sending a response after staging has failed. */
+        if(client->step == WEBSERVER_CLIENT_CLOSE) {
+          return -1;
+        }
             }
           }
           i += client->totallen;
@@ -1667,25 +1677,29 @@ static int webserver_process_send(struct webserver_t *client) {
           if(client->async == 1) {
             tcp_write(client->pcb, cpy, (tmp->size-client->ptr), TCP_WRITE_FLAG_MORE);
           } else {
-            if(webserver_safe_write(client,cpy, (tmp->size-client->ptr)) > 0) {
+            if(webserver_safe_write(client, cpy, (tmp->size-client->ptr)) > 0) {
               if(client->is_websocket == 0) {
                 client->lastseen = millis();
               }
             }
-        // Do not continue sending a response after staging has failed.
-        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        /* Do not continue sending a response after staging has failed. */
+        if(client->step == WEBSERVER_CLIENT_CLOSE) {
+          return -1;
+        }
           }
         } else {
           if(client->async == 1) {
             tcp_write(client->pcb, &((unsigned char *)tmp->data.ptr)[client->ptr], (tmp->size-client->ptr), TCP_WRITE_FLAG_MORE);
           } else {
-            if(webserver_safe_write(client,&((unsigned char *)tmp->data.ptr)[client->ptr], (tmp->size-client->ptr)) > 0) {
+            if(webserver_safe_write(client, &((unsigned char *)tmp->data.ptr)[client->ptr], (tmp->size-client->ptr)) > 0) {
               if(client->is_websocket == 0) {
                 client->lastseen = millis();
               }
             }
-        // Do not continue sending a response after staging has failed.
-        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        /* Do not continue sending a response after staging has failed. */
+        if(client->step == WEBSERVER_CLIENT_CLOSE) {
+          return -1;
+        }
           }
         }
         i += (tmp->size-client->ptr);
@@ -1724,25 +1738,29 @@ static int webserver_process_send(struct webserver_t *client) {
           if(client->async == 1) {
             tcp_write(client->pcb, cpy, client->totallen, TCP_WRITE_FLAG_MORE);
           } else {
-            if(webserver_safe_write(client,cpy, client->totallen) > 0) {
+            if(webserver_safe_write(client, cpy, client->totallen) > 0) {
               if(client->is_websocket == 0) {
                 client->lastseen = millis();
               }
             }
-        // Do not continue sending a response after staging has failed.
-        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        /* Do not continue sending a response after staging has failed. */
+        if(client->step == WEBSERVER_CLIENT_CLOSE) {
+          return -1;
+        }
           }
         } else {
           if(client->async == 1) {
             tcp_write(client->pcb, &((unsigned char *)tmp->data.ptr)[client->ptr], client->totallen, TCP_WRITE_FLAG_MORE);
           } else {
-            if(webserver_safe_write(client,&((unsigned char *)tmp->data.ptr)[client->ptr], client->totallen) > 0) {
+            if(webserver_safe_write(client, &((unsigned char *)tmp->data.ptr)[client->ptr], client->totallen) > 0) {
               if(client->is_websocket == 0) {
                 client->lastseen = millis();
               }
             }
-        // Do not continue sending a response after staging has failed.
-        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        /* Do not continue sending a response after staging has failed. */
+        if(client->step == WEBSERVER_CLIENT_CLOSE) {
+          return -1;
+        }
           }
         }
         client->ptr += client->totallen;
@@ -1753,13 +1771,15 @@ static int webserver_process_send(struct webserver_t *client) {
       if(client->async == 1) {
         tcp_write_P(client->pcb, PSTR("\r\n"), 2, TCP_WRITE_FLAG_MORE);
       } else {
-        if(webserver_safe_write_P(client,(char *)PSTR("\r\n"), 2) > 0) {
+        if(webserver_safe_write_P(client, (char *)PSTR("\r\n"), 2) > 0) {
           if(client->is_websocket == 0) {
             client->lastseen = millis();
           }
         }
-        // Do not continue sending a response after staging has failed.
-        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        /* Do not continue sending a response after staging has failed. */
+        if(client->step == WEBSERVER_CLIENT_CLOSE) {
+          return -1;
+        }
       }
     }
   }
@@ -1803,26 +1823,30 @@ static int webserver_process_send(struct webserver_t *client) {
         if(client->async == 1) {
           tcp_write_P(client->pcb, PSTR("0\r\n\r\n"), 5, 0);
         } else {
-          if(webserver_safe_write_P(client,(char *)PSTR("0\r\n\r\n"), 5) > 0) {
+          if(webserver_safe_write_P(client, (char *)PSTR("0\r\n\r\n"), 5) > 0) {
             if(client->is_websocket == 0) {
               client->lastseen = millis();
             }
           }
-        // Do not continue sending a response after staging has failed.
-        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        /* Do not continue sending a response after staging has failed. */
+        if(client->step == WEBSERVER_CLIENT_CLOSE) {
+          return -1;
+        }
         }
         i += 5;
       } else if(client->is_websocket == 0) {
         if(client->async == 1) {
           tcp_write_P(client->pcb, PSTR("\r\n\r\n"), 4, 0);
         } else {
-          if(webserver_safe_write_P(client,(char *)PSTR("\r\n\r\n"), 4) > 0) {
+          if(webserver_safe_write_P(client, (char *)PSTR("\r\n\r\n"), 4) > 0) {
             if(client->is_websocket == 0) {
               client->lastseen = millis();
             }
           }
-        // Do not continue sending a response after staging has failed.
-        if(client->step == WEBSERVER_CLIENT_CLOSE) return -1;
+        /* Do not continue sending a response after staging has failed. */
+        if(client->step == WEBSERVER_CLIENT_CLOSE) {
+          return -1;
+        }
         }
         i += 4;
       }
@@ -1998,7 +2022,7 @@ done:
       tcp_write(client->pcb, &buffer, i, 0);
       tcp_output(client->pcb);
     } else{
-      if(webserver_safe_write(client,(unsigned char *)&buffer, i) > 0) {
+      if(webserver_safe_write(client, (unsigned char *)&buffer, i) > 0) {
         if(client->is_websocket == 0) {
           client->lastseen = millis();
         }
@@ -2108,7 +2132,7 @@ static void send_websocket_handshake(struct webserver_t *client, const char *key
     tcp_write(client->pcb, buf, len, 0);
     tcp_output(client->pcb);
   } else {
-    if(webserver_safe_write(client,buf, len) > 0 && client->is_websocket == 0) {
+    if(webserver_safe_write(client, buf, len) > 0 && client->is_websocket == 0) {
       client->lastseen = millis();
     }
   }
@@ -2525,17 +2549,24 @@ void webserver_loop(void) {
     }
 
 #if defined(ESP32)
-    // A previous staging failure must remain fatal even when callbacks
-    // have overwritten the client's step after an unsuccessful enqueue.
+    /*
+     * A previous staging failure must remain fatal even when callbacks
+     * have overwritten the client's step after an unsuccessful enqueue.
+     */
     if(clients[i].data.tx_failed) {
       clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
-      clients[i].data.tx_used = clients[i].data.tx_sent = 0;
+      clients[i].data.tx_used = 0;
+      clients[i].data.tx_sent = 0;
     }
-    // Flush pending bytes before generating another HTTP sendlist batch.
-    // A CLOSE response must be drained before the client is stopped.
+    /*
+     * Flush pending bytes before generating another HTTP sendlist batch.
+     * A CLOSE response must be drained before the client is stopped.
+     */
     if(clients[i].data.tx_used != clients[i].data.tx_sent) {
       const bool drained = web_tx_flush(&clients[i].data);
-      if(!drained || clients[i].data.step == WEBSERVER_CLIENT_CLOSE) continue;
+      if(!drained || clients[i].data.step == WEBSERVER_CLIENT_CLOSE) {
+        continue;
+      }
       // Once drained, only stage the next batch; do not send it here.
     }
 #endif
