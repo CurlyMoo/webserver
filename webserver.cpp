@@ -148,7 +148,7 @@ static int32_t web_tx_enqueue(struct webserver_t *client, const uint8_t *buf, ui
   return (int32_t)len;
 }
 
-/* Return 0 when drained, 1 when pending, -1 on a fatal socket error. */
+/* Return 0 when the flush is finished (including client closure), -1 while pending. */
 static int8_t web_tx_flush(struct webserver_t *client) {
   if(client->tx_used == client->tx_sent) {
     return 0;
@@ -158,7 +158,7 @@ static int8_t web_tx_flush(struct webserver_t *client) {
     client->step = WEBSERVER_CLIENT_CLOSE;
     client->tx_used = 0;
     client->tx_sent = 0;
-    return -1;
+    return 0;
   }
   uint16_t left = client->tx_used - client->tx_sent;
   uint16_t attempt = left < WEB_TX_FLUSH_LIMIT ? left : WEB_TX_FLUSH_LIMIT;
@@ -174,7 +174,7 @@ static int8_t web_tx_flush(struct webserver_t *client) {
     client->step = WEBSERVER_CLIENT_CLOSE;
     client->tx_used = 0;
     client->tx_sent = 0;
-    return -1;
+    return 0;
   }
   if(client->tx_sent == client->tx_used) {
     client->tx_sent = 0;
@@ -188,9 +188,9 @@ static int8_t web_tx_flush(struct webserver_t *client) {
     client->step = WEBSERVER_CLIENT_CLOSE;
     client->tx_used = 0;
     client->tx_sent = 0;
-    return -1;
+    return 0;
   }
-  return 1;
+  return -1;
 }
 #endif
 
@@ -2571,7 +2571,7 @@ void webserver_loop(void) {
      */
     if(clients[i].data.tx_used != clients[i].data.tx_sent) {
       int8_t flush_status = web_tx_flush(&clients[i].data);
-      if(flush_status != 0 || clients[i].data.step == WEBSERVER_CLIENT_CLOSE) {
+      if(flush_status == -1 || clients[i].data.step == WEBSERVER_CLIENT_CLOSE) {
         continue;
       }
       // Once drained, only stage the next batch; do not send it here.
