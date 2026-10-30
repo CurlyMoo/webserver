@@ -92,7 +92,7 @@ static uint8_t web_tx_busy[WEBSERVER_MAX_CLIENTS] = {0};
 
 static int8_t web_tx_acquire(struct webserver_t *client) {
   if(client->tx_data != NULL) {
-    return 1;
+    return 0;
   }
   for(uint8_t i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
     if(web_tx_busy[i] == 0) {
@@ -101,7 +101,7 @@ static int8_t web_tx_acquire(struct webserver_t *client) {
       client->tx_used = 0;
       client->tx_sent = 0;
       client->tx_last_progress = millis();
-      return 1;
+      return 0;
     }
   }
   return 0;
@@ -112,7 +112,7 @@ static void web_tx_release(struct webserver_t *client) {
     return;
   }
   for(uint8_t i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
-    if(client->tx_data == web_tx_pool[i]) {
+    if(client->tx_data == &web_tx_pool[i][0]) {
       web_tx_busy[i] = 0;
       break;
     }
@@ -125,7 +125,7 @@ static int32_t web_tx_enqueue(struct webserver_t *client, const uint8_t *buf, ui
   if(len == 0) {
     return 0;
   }
-  if(web_tx_acquire(client) == 0) {
+  if(web_tx_acquire(client) == -1) {
     Serial.println("WEB TX buffer unavailable; closing client");
     client->tx_failed = 1;
     client->step = WEBSERVER_CLIENT_CLOSE;
@@ -148,16 +148,17 @@ static int32_t web_tx_enqueue(struct webserver_t *client, const uint8_t *buf, ui
   return (int32_t)len;
 }
 
+/* Return 0 when drained, 1 when pending, -1 on a fatal socket error. */
 static int8_t web_tx_flush(struct webserver_t *client) {
   if(client->tx_used == client->tx_sent) {
-    return 1;
+    return 0;
   }
   int fd = client->client->fd();
   if(fd < 0) {
     client->step = WEBSERVER_CLIENT_CLOSE;
     client->tx_used = 0;
     client->tx_sent = 0;
-    return 1;
+    return -1;
   }
   uint16_t left = client->tx_used - client->tx_sent;
   uint16_t attempt = left < WEB_TX_FLUSH_LIMIT ? left : WEB_TX_FLUSH_LIMIT;
@@ -173,12 +174,12 @@ static int8_t web_tx_flush(struct webserver_t *client) {
     client->step = WEBSERVER_CLIENT_CLOSE;
     client->tx_used = 0;
     client->tx_sent = 0;
-    return 1;
+    return -1;
   }
   if(client->tx_sent == client->tx_used) {
     client->tx_sent = 0;
     client->tx_used = 0;
-    return 1;
+    return 0;
   }
   if((uint32_t)(millis() - client->tx_last_progress) > WEB_TX_STALL_TIMEOUT_MS) {
     Serial.printf("WEB TX stalled for %lu ms remaining=%u; closing client\n",
@@ -187,9 +188,9 @@ static int8_t web_tx_flush(struct webserver_t *client) {
     client->step = WEBSERVER_CLIENT_CLOSE;
     client->tx_used = 0;
     client->tx_sent = 0;
-    return 1;
+    return -1;
   }
-  return 0;
+  return 1;
 }
 #endif
 
@@ -2569,8 +2570,8 @@ void webserver_loop(void) {
      * A CLOSE response must be drained before the client is stopped.
      */
     if(clients[i].data.tx_used != clients[i].data.tx_sent) {
-      int8_t drained = web_tx_flush(&clients[i].data);
-      if(drained == 0 || clients[i].data.step == WEBSERVER_CLIENT_CLOSE) {
+      int8_t flush_status = web_tx_flush(&clients[i].data);
+      if(flush_status != 0 || clients[i].data.step == WEBSERVER_CLIENT_CLOSE) {
         continue;
       }
       // Once drained, only stage the next batch; do not send it here.
