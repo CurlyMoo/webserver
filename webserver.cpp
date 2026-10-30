@@ -1545,9 +1545,9 @@ static int webserver_process_send(struct webserver_t *client) {
         }
       }
       /* Do not continue sending a response after staging has failed. */
-        if(client->step == WEBSERVER_CLIENT_CLOSE) {
-          return -1;
-        }
+      if(client->step == WEBSERVER_CLIENT_CLOSE) {
+        return -1;
+      }
       }
     i += n;
   }
@@ -1586,7 +1586,7 @@ static int webserver_process_send(struct webserver_t *client) {
               }
               /* Do not continue sending a response after staging has failed. */
               if(client->step == WEBSERVER_CLIENT_CLOSE) {
-              return -1;
+                return -1;
               }
               }
           } else {
@@ -1600,7 +1600,7 @@ static int webserver_process_send(struct webserver_t *client) {
               }
               /* Do not continue sending a response after staging has failed. */
               if(client->step == WEBSERVER_CLIENT_CLOSE) {
-              return -1;
+                return -1;
               }
               }
           }
@@ -1648,7 +1648,7 @@ static int webserver_process_send(struct webserver_t *client) {
               }
               /* Do not continue sending a response after staging has failed. */
               if(client->step == WEBSERVER_CLIENT_CLOSE) {
-              return -1;
+                return -1;
               }
               }
           } else {
@@ -1662,7 +1662,7 @@ static int webserver_process_send(struct webserver_t *client) {
               }
               /* Do not continue sending a response after staging has failed. */
               if(client->step == WEBSERVER_CLIENT_CLOSE) {
-              return -1;
+                return -1;
               }
               }
           }
@@ -1690,7 +1690,7 @@ static int webserver_process_send(struct webserver_t *client) {
             }
             /* Do not continue sending a response after staging has failed. */
             if(client->step == WEBSERVER_CLIENT_CLOSE) {
-            return -1;
+              return -1;
             }
             }
         } else {
@@ -1704,7 +1704,7 @@ static int webserver_process_send(struct webserver_t *client) {
             }
             /* Do not continue sending a response after staging has failed. */
             if(client->step == WEBSERVER_CLIENT_CLOSE) {
-            return -1;
+              return -1;
             }
             }
         }
@@ -1751,7 +1751,7 @@ static int webserver_process_send(struct webserver_t *client) {
             }
             /* Do not continue sending a response after staging has failed. */
             if(client->step == WEBSERVER_CLIENT_CLOSE) {
-            return -1;
+              return -1;
             }
             }
         } else {
@@ -1765,7 +1765,7 @@ static int webserver_process_send(struct webserver_t *client) {
             }
             /* Do not continue sending a response after staging has failed. */
             if(client->step == WEBSERVER_CLIENT_CLOSE) {
-            return -1;
+              return -1;
             }
             }
         }
@@ -1836,7 +1836,7 @@ static int webserver_process_send(struct webserver_t *client) {
           }
           /* Do not continue sending a response after staging has failed. */
           if(client->step == WEBSERVER_CLIENT_CLOSE) {
-          return -1;
+            return -1;
           }
           }
         i += 5;
@@ -1851,7 +1851,7 @@ static int webserver_process_send(struct webserver_t *client) {
           }
           /* Do not continue sending a response after staging has failed. */
           if(client->step == WEBSERVER_CLIENT_CLOSE) {
-          return -1;
+            return -1;
           }
           }
         i += 4;
