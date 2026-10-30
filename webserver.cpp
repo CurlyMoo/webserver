@@ -90,6 +90,19 @@ static const uint32_t WEB_TX_STALL_TIMEOUT_MS = 5000;
 static uint8_t web_tx_pool[WEBSERVER_MAX_CLIENTS][WEB_TX_CAPACITY];
 static uint8_t web_tx_busy[WEBSERVER_MAX_CLIENTS] = {0};
 
+typedef enum {
+  WEB_TX_DONE = 0,
+  WEB_TX_PENDING = 1,
+  WEB_TX_FAILED = -1
+} web_tx_status_t;
+
+static web_tx_status_t web_tx_fail(struct webserver_t *client) {
+  client->tx_failed = 1;
+  client->step = WEBSERVER_CLIENT_CLOSE;
+  client->tx_used = 0;
+  return WEB_TX_FAILED;
+}
+
 static int8_t web_tx_acquire(struct webserver_t *client) {
   if(client->tx_data != NULL) {
     return 0;
@@ -99,7 +112,6 @@ static int8_t web_tx_acquire(struct webserver_t *client) {
       web_tx_busy[i] = 1;
       client->tx_data = web_tx_pool[i];
       client->tx_used = 0;
-      client->tx_sent = 0;
       client->tx_last_progress = millis();
       return 0;
     }
@@ -119,28 +131,24 @@ static void web_tx_release(struct webserver_t *client) {
   }
   client->tx_data = NULL;
   client->tx_used = 0;
-  client->tx_sent = 0;
 }
+
 static int32_t web_tx_enqueue(struct webserver_t *client, const uint8_t *buf, uint16_t len) {
   if(len == 0) {
     return 0;
   }
   if(web_tx_acquire(client) == -1) {
     Serial.println("WEB TX buffer unavailable; closing client");
-    client->tx_failed = 1;
-    client->step = WEBSERVER_CLIENT_CLOSE;
+    web_tx_fail(client);
     return -1;
   }
-  if((uint32_t)client->tx_used + len > WEB_TX_CAPACITY) {
+  if(client->tx_used > WEB_TX_CAPACITY || len > WEB_TX_CAPACITY - client->tx_used) {
     Serial.printf("WEB TX queue overflow queued=%u new=%u; closing client\n",
       (unsigned int)client->tx_used, (unsigned int)len);
-    client->tx_failed = 1;
-    client->step = WEBSERVER_CLIENT_CLOSE;
+    web_tx_fail(client);
     return -1;
   }
-  if(client->tx_used == client->tx_sent) {
-    client->tx_used = 0;
-    client->tx_sent = 0;
+  if(client->tx_used == 0) {
     client->tx_last_progress = millis();
   }
   memcpy(client->tx_data + client->tx_used, buf, len);
@@ -148,49 +156,79 @@ static int32_t web_tx_enqueue(struct webserver_t *client, const uint8_t *buf, ui
   return (int32_t)len;
 }
 
-/* Return 0 when the flush is finished (including client closure), -1 while pending. */
-static int8_t web_tx_flush(struct webserver_t *client) {
-  if(client->tx_used == client->tx_sent) {
-    return 0;
+/*
+ * Flush pending TX data.
+ * WEB_TX_DONE:    all data has been sent.
+ * WEB_TX_PENDING: more data remains; retry on next loop iteration.
+ * WEB_TX_FAILED:  transmission failed; client will be closed.
+ */
+static web_tx_status_t web_tx_flush(struct webserver_t *client) {
+  if(client->tx_used == 0) {
+    return WEB_TX_DONE;
   }
+
+  if(client->tx_data == NULL || client->tx_used > WEB_TX_CAPACITY) {
+    Serial.println("WEB TX invalid buffer state; closing client");
+    return web_tx_fail(client);
+  }
+
+  if(client->client == NULL) {
+    Serial.println("WEB TX client unavailable; closing client");
+    return web_tx_fail(client);
+  }
+
   int fd = client->client->fd();
   if(fd < 0) {
-    client->step = WEBSERVER_CLIENT_CLOSE;
-    client->tx_used = 0;
-    client->tx_sent = 0;
-    return 0;
+    Serial.println("WEB TX invalid socket; closing client");
+    return web_tx_fail(client);
   }
-  uint16_t left = client->tx_used - client->tx_sent;
-  uint16_t attempt = left < WEB_TX_FLUSH_LIMIT ? left : WEB_TX_FLUSH_LIMIT;
-  int n = lwip_send(fd, client->tx_data + client->tx_sent, attempt, MSG_DONTWAIT);
+
+  uint16_t attempt = client->tx_used < WEB_TX_FLUSH_LIMIT ? client->tx_used : WEB_TX_FLUSH_LIMIT;
+  int n = lwip_send(fd, client->tx_data, attempt, MSG_DONTWAIT);
+
   if(n > 0) {
-    client->tx_sent += (uint16_t)n;
+    if((uint16_t)n > attempt) {
+      Serial.printf("WEB TX invalid send length=%d; closing client\n", n);
+      return web_tx_fail(client);
+    }
+
+    client->tx_used -= (uint16_t)n;
+
+    if(client->tx_used > 0) {
+      memmove(client->tx_data, client->tx_data + n, client->tx_used);
+    }
+
     client->tx_last_progress = millis();
+
     if(client->is_websocket == 0) {
       client->lastseen = millis();
     }
-  } else if(n < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR && errno != ENOMEM) {
-    Serial.printf("WEB TX socket error errno=%d; closing client\n", errno);
-    client->step = WEBSERVER_CLIENT_CLOSE;
-    client->tx_used = 0;
-    client->tx_sent = 0;
-    return 0;
+  } else if(n < 0) {
+    // Save errno before doing anything that might overwrite it.
+    int err = errno;
+
+    if(err != EAGAIN && err != EWOULDBLOCK && err != EINTR && err != ENOMEM) {
+      Serial.printf("WEB TX socket error errno=%d; closing client\n", err);
+      return web_tx_fail(client);
+    }
+  } else {
+    // No progress is possible with pending data.
+    Serial.println("WEB TX socket returned zero; closing client");
+    return web_tx_fail(client);
   }
-  if(client->tx_sent == client->tx_used) {
-    client->tx_sent = 0;
-    client->tx_used = 0;
-    return 0;
+
+  if(client->tx_used == 0) {
+    return WEB_TX_DONE;
   }
+
   if((uint32_t)(millis() - client->tx_last_progress) > WEB_TX_STALL_TIMEOUT_MS) {
     Serial.printf("WEB TX stalled for %lu ms remaining=%u; closing client\n",
       (unsigned long)(millis() - client->tx_last_progress),
-      (unsigned int)(client->tx_used - client->tx_sent));
-    client->step = WEBSERVER_CLIENT_CLOSE;
-    client->tx_used = 0;
-    client->tx_sent = 0;
-    return 0;
+      (unsigned int)client->tx_used);
+    return web_tx_fail(client);
   }
-  return -1;
+
+  return WEB_TX_PENDING;
 }
 #endif
 
@@ -2563,15 +2601,14 @@ void webserver_loop(void) {
     if(clients[i].data.tx_failed) {
       clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
       clients[i].data.tx_used = 0;
-      clients[i].data.tx_sent = 0;
     }
     /*
      * Flush pending bytes before generating another HTTP sendlist batch.
      * A CLOSE response must be drained before the client is stopped.
      */
-    if(clients[i].data.tx_used != clients[i].data.tx_sent) {
-      int8_t flush_status = web_tx_flush(&clients[i].data);
-      if(flush_status == -1 || clients[i].data.step == WEBSERVER_CLIENT_CLOSE) {
+    if(clients[i].data.tx_used > 0) {
+      web_tx_status_t flush_status = web_tx_flush(&clients[i].data);
+      if(flush_status != WEB_TX_DONE) {
         continue;
       }
       // Once drained, only stage the next batch; do not send it here.
