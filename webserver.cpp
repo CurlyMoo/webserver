@@ -104,7 +104,7 @@ static int8_t web_tx_acquire(struct webserver_t *client) {
       return 0;
     }
   }
-  return 0;
+  return -1;
 }
 
 static void web_tx_release(struct webserver_t *client) {
