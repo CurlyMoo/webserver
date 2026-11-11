@@ -2060,6 +2060,14 @@ int websocket_read(struct webserver_t *client, unsigned char *buf, ssize_t buf_l
   memcpy(mask, &buf[index_first_mask], 4);
   index_first_data_byte = index_first_mask + 4;
 
+  if(buf_len < index_first_data_byte || packet_length > (uint32_t)(buf_len - index_first_data_byte)) {
+    /*
+     * Packet length larger than the data received
+     */
+    client->step = WEBSERVER_CLIENT_CLOSE;
+    return -1;
+  }
+
   for(i = index_first_data_byte, j = 0; i < buf_len && i < packet_length + index_first_data_byte; i++, j++) {
     buf[j] = buf[i] ^ mask[j % 4];
   }
