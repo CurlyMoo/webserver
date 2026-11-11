@@ -534,8 +534,7 @@ int8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *l
         memmove(&client->buffer[0], &client->buffer[4], client->ptr-4);
         client->ptr -= 4;
         client->substep = 1;
-      }
-      if(memcmp_P(client->buffer, PSTR("POST "), 5) == 0) {
+      } else if(memcmp_P(client->buffer, PSTR("POST "), 5) == 0) {
         client->method = 1;
         client->reqtype = 0;
         client->step = WEBSERVER_CLIENT_REQUEST_METHOD;
@@ -549,6 +548,12 @@ int8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *l
         memmove(&client->buffer[0], &client->buffer[5], client->ptr-5);
         client->ptr -= 5;
         client->substep = 1;
+      } else if(client->ptr >= 5 || memchr(client->buffer, '\n', client->ptr) != NULL) {
+        /*
+         * Unsupported request method or no HTTP at all
+         */
+        client->step = WEBSERVER_CLIENT_CLOSE;
+        return -1;
       }
     }
       /*

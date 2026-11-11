@@ -1519,6 +1519,38 @@ void test_edge_case1(void) {
   }
 }
 
+void test_unsupported_request(void) {
+  fprintf(stderr, "%s:%d: unsupported request test\n", __FUNCTION__, __LINE__);
+
+  char options[] = "OPTIONS / HTTP/1.0\r\n\r\n";
+  static unsigned char binary[WEBSERVER_BUFFER_SIZE+1];
+  memset(binary, 0x16, sizeof(binary));
+
+  struct {
+    uint8_t *data;
+    uint16_t len;
+  } requests[] = {
+    { (uint8_t *)options, (uint16_t)strlen(options) },
+    { binary, (uint16_t)sizeof(binary) }
+  };
+
+  for(uint8_t i=0;i<sizeof(requests)/sizeof(requests[0]);i++) {
+    memset(&clients[0], 0, sizeof(struct webserver_t));
+
+    clients[0].data.callback = &webserver_cb;
+    clients[0].data.step = WEBSERVER_CLIENT_READ_HEADER;
+
+    webserver_sync_receive(&clients[0].data, requests[i].data, requests[i].len);
+
+    if(clients[0].data.step != WEBSERVER_CLIENT_CLOSE) {
+      fprintf(stderr, "%s:%d: test #%d failed, expected %d got %d\n",
+        __FUNCTION__, __LINE__, i+1, WEBSERVER_CLIENT_CLOSE, clients[0].data.step
+      );
+      exit(-1);
+    }
+  }
+}
+
 void test_receive(void) {
   uint16_t size = 0;
   uint8_t nrtests = sizeof(unittest)/sizeof(unittest[0]), y = 0;
@@ -2846,6 +2878,7 @@ int main(void) {
   srand(time(NULL));
   test_receive();
   test_edge_case1();
+  test_unsupported_request();
   test_receive_binary("../heisha.bin", -1, 501776, 712);
   test_receive_binary("../heisha1.bin", -3, 616672, 663);
   test_receive_binary("../heisha2.bin", -3, 630464, 789);
