@@ -2733,6 +2733,40 @@ void test_websocket(void) {
   delete clients[0].data.client;
 }
 
+void test_websocket_frame_length(void) {
+  fprintf(stderr, "%s:%d: websocket frame length test\n", __FUNCTION__, __LINE__);
+
+  memset(&clients[0], 0, sizeof(struct webserver_t));
+
+  clients[0].data.callback = &webserver_cb;
+  clients[0].data.step = WEBSERVER_CLIENT_WEBSOCKET;
+
+  /*
+   * Frame header announcing 0xFF00 bytes of payload
+   * while only the 8 header bytes are received
+   */
+  static unsigned char frame[0xFF00+1];
+  unsigned char header[] = {0x82, 0xfe, 0xff, 0x00, 0x6d, 0xc2, 0x63, 0xbc};
+  memset(frame, 0xAA, sizeof(frame));
+  memcpy(frame, header, sizeof(header));
+
+  webserver_sync_receive(&clients[0].data, (uint8_t *)frame, sizeof(header));
+
+  if(frame[0xFF00] != 0xAA) {
+    fprintf(stderr, "%s:%d: test failed, byte %d past the received data was overwritten\n",
+      __FUNCTION__, __LINE__, 0xFF00
+    );
+    exit(-1);
+  }
+
+  if(clients[0].data.step != WEBSERVER_CLIENT_CLOSE) {
+    fprintf(stderr, "%s:%d: test failed, expected %d got %d\n",
+      __FUNCTION__, __LINE__, WEBSERVER_CLIENT_CLOSE, clients[0].data.step
+    );
+    exit(-1);
+  }
+}
+
 void test_receive_binary(char *file, int nr, unsigned int conlen, int offset) {
   uint16_t size = 0;
   testnr = nr;
@@ -2822,6 +2856,7 @@ int main(void) {
   // above never exercise the field-transition path where it lived.
   test_receive_binary("../heisha_md5.bin", -1, 501776, 712);
   test_websocket();
+  test_websocket_frame_length();
 
   testnr = 0;
 
