@@ -1608,6 +1608,57 @@ void test_header_empty_name(void) {
   }
 }
 
+static int args_past_line_count = 0;
+static int args_past_line_ok = 0;
+
+static int8_t args_past_line_cb(struct webserver_t *client, void *dat) {
+  if(client->step == WEBSERVER_CLIENT_ARGS) {
+    struct arguments_t *args = (struct arguments_t *)dat;
+    args_past_line_count++;
+    if(strcmp((char *)args->name, "a") == 0 && args->len == 1 && args->value[0] == '1') {
+      args_past_line_ok++;
+    }
+  }
+  return 0;
+}
+
+void test_args_past_request_line(void) {
+  fprintf(stderr, "%s:%d: GET arguments past the request line test\n", __FUNCTION__, __LINE__);
+
+  /*
+   * A complete request in one packet with a '&' in a header.
+   * The '&' is not part of the GET arguments.
+   */
+  char request[] =
+    "GET /command?a=1 HTTP/1.1\r\n"
+    "Host: x\r\n"
+    "Referer: http://x/?b=2&c=3\r\n"
+    "\r\n";
+
+  args_past_line_count = 0;
+  args_past_line_ok = 0;
+  memset(&clients[0], 0, sizeof(struct webserver_t));
+
+  clients[0].data.callback = &args_past_line_cb;
+  clients[0].data.step = WEBSERVER_CLIENT_READ_HEADER;
+
+  webserver_sync_receive(&clients[0].data, (uint8_t *)request, strlen(request));
+
+  if(clients[0].data.step != WEBSERVER_CLIENT_WRITE) {
+    fprintf(stderr, "%s:%d: test failed, expected %d got %d\n",
+      __FUNCTION__, __LINE__, WEBSERVER_CLIENT_WRITE, clients[0].data.step
+    );
+    exit(-1);
+  }
+
+  if(args_past_line_count != 1 || args_past_line_ok != 1) {
+    fprintf(stderr, "%s:%d: test failed, expected 1 argument a=1, got %d arguments\n",
+      __FUNCTION__, __LINE__, args_past_line_count
+    );
+    exit(-1);
+  }
+}
+
 void test_receive(void) {
   uint16_t size = 0;
   uint8_t nrtests = sizeof(unittest)/sizeof(unittest[0]), y = 0;
@@ -2938,6 +2989,7 @@ int main(void) {
   test_unsupported_request();
   test_multipart_no_boundary();
   test_header_empty_name();
+  test_args_past_request_line();
   test_receive_binary("../heisha.bin", -1, 501776, 712);
   test_receive_binary("../heisha1.bin", -3, 616672, 663);
   test_receive_binary("../heisha2.bin", -3, 630464, 789);
