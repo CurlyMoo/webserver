@@ -1615,7 +1615,7 @@ static int8_t args_past_line_cb(struct webserver_t *client, void *dat) {
   if(client->step == WEBSERVER_CLIENT_ARGS) {
     struct arguments_t *args = (struct arguments_t *)dat;
     args_past_line_count++;
-    if(strcmp((char *)args->name, "a") == 0 && args->len == 1 && args->value[0] == '1') {
+    if(strcmp((char *)args->name, "a") == 0 && strcmp((char *)args->value, "1") == 0) {
       args_past_line_ok++;
     }
   }
