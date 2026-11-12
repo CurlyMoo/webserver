@@ -645,9 +645,12 @@ int8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *l
         struct arguments_t args;
         uint16_t i = ptr-client->buffer, x = 0;
         /*
-         * A colon at the start of the line is a header
-         * without a name. The split of an overlong line
-         * below would then write client->buffer[-1].
+         * A colon at position 0 is a header without a
+         * name, which is malformed. For such a line x
+         * becomes 0 below, and when the line does not
+         * fit into the buffer, the split writes
+         * client->buffer[x-1] = ':'. x-1 is computed as
+         * int, so that is one byte before the buffer.
          */
         if(i == 0) {
           client->step = WEBSERVER_CLIENT_CLOSE;
