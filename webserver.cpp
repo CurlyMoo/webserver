@@ -695,7 +695,11 @@ int8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *l
                 memcpy(tmp, &client->buffer[x+1], args.len);
                 {
                   char *ptr = strstr(tmp, "boundary=");
-                  uint8_t pos = (ptr-tmp)+strlen("boundary=");
+                  if(ptr == NULL) {
+                    client->step = WEBSERVER_CLIENT_CLOSE;
+                    return -1;
+                  }
+                  uint16_t pos = (ptr-tmp)+strlen("boundary=");
                   memmove(&tmp[0], &tmp[pos], args.len-pos);
                   tmp[args.len-pos] = 0;
                   if((client->data.boundary = strdup(tmp)) == NULL) {

@@ -1551,6 +1551,27 @@ void test_unsupported_request(void) {
   }
 }
 
+void test_multipart_no_boundary(void) {
+  fprintf(stderr, "%s:%d: multipart without boundary test\n", __FUNCTION__, __LINE__);
+
+  char request[] = "POST / HTTP/1.1\r\nContent-Type: multipart/form-data\r\nContent-Length: 10\r\n\r\n";
+
+  testnr = -1;
+  memset(&clients[0], 0, sizeof(struct webserver_t));
+
+  clients[0].data.callback = &webserver_cb;
+  clients[0].data.step = WEBSERVER_CLIENT_READ_HEADER;
+
+  webserver_sync_receive(&clients[0].data, (uint8_t *)request, strlen(request));
+
+  if(clients[0].data.step != WEBSERVER_CLIENT_CLOSE) {
+    fprintf(stderr, "%s:%d: test failed, expected %d got %d\n",
+      __FUNCTION__, __LINE__, WEBSERVER_CLIENT_CLOSE, clients[0].data.step
+    );
+    exit(-1);
+  }
+}
+
 void test_receive(void) {
   uint16_t size = 0;
   uint8_t nrtests = sizeof(unittest)/sizeof(unittest[0]), y = 0;
@@ -2879,6 +2900,7 @@ int main(void) {
   test_receive();
   test_edge_case1();
   test_unsupported_request();
+  test_multipart_no_boundary();
   test_receive_binary("../heisha.bin", -1, 501776, 712);
   test_receive_binary("../heisha1.bin", -3, 616672, 663);
   test_receive_binary("../heisha2.bin", -3, 630464, 789);
