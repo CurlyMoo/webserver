@@ -644,6 +644,15 @@ int8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *l
       while(ptr != NULL) {
         struct arguments_t args;
         uint16_t i = ptr-client->buffer, x = 0;
+        /*
+         * A colon at the start of the line is a header
+         * without a name. The split of an overlong line
+         * below would then write client->buffer[-1].
+         */
+        if(i == 0) {
+          client->step = WEBSERVER_CLIENT_CLOSE;
+          return -1;
+        }
         client->buffer[i] = 0;
         args.name = &client->buffer[0];
         args.value = NULL;
