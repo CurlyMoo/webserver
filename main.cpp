@@ -1615,7 +1615,7 @@ static int8_t args_past_line_cb(struct webserver_t *client, void *dat) {
   if(client->step == WEBSERVER_CLIENT_ARGS) {
     struct arguments_t *args = (struct arguments_t *)dat;
     args_past_line_count++;
-    if(strcmp((char *)args->name, "a") == 0 && strcmp((char *)args->value, "1") == 0) {
+    if(strcmp((char *)args->name, "a") == 0 && strcmp((char *)args->value, "1") == 0 && args->len == 1) {
       args_past_line_ok++;
     }
   }
@@ -1652,7 +1652,7 @@ void test_args_past_request_line(void) {
   }
 
   if(args_past_line_count != 1 || args_past_line_ok != 1) {
-    fprintf(stderr, "%s:%d: test failed, expected 1 argument a=1, got %d arguments\n",
+    fprintf(stderr, "%s:%d: test failed, expected 1 argument a=1 with length 1, got %d arguments\n",
       __FUNCTION__, __LINE__, args_past_line_count
     );
     exit(-1);
