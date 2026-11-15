@@ -58,3 +58,10 @@ set_target_properties(${PROJECT_NAME}_shared ${PROJECT_NAME}_static PROPERTIES O
 add_executable(start webserver.cpp main.cpp strnstr.cpp strncasestr.cpp)
 target_link_libraries(start ${PROJECT_NAME}_shared)
 
+
+# Tests of the non-blocking TX path with a socket that only accepts part of
+# the data. Built with the same WEBSERVER_* settings as start, so the CI
+# variants (WEBSERVER_MAX_SENDLIST, WEBSERVER_BUFFER_SIZE) all run them.
+add_executable(start_sendlist webserver.cpp tests/sendlist.cpp base64.cpp sha1.cpp strnstr.cpp strncasestr.cpp)
+# Check that the lwIP raw API is only used from callbacks or with the core locked
+target_compile_definitions(start_sendlist PRIVATE WEBSERVER_LWIP_LOCK_HOOK)

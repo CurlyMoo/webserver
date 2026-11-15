@@ -29,8 +29,17 @@
   #define WEBSERVER_MAX_CLIENTS 5
 #endif
 
+/*
+ * Number of sendlist nodes per client (0: unlimited linked list).
+ * The sendlist is the only TX queue. Chunk framing adds a header and a
+ * trailer node around everything that is queued before sending starts, so at
+ * most WEBSERVER_MAX_SENDLIST - 2 content nodes fit. The callback calls for
+ * content 0 and content 1 are both made before the first byte is sent, so
+ * their nodes count together. More than that closes the client instead of
+ * sending a truncated response.
+ */
 #ifndef WEBSERVER_MAX_SENDLIST
-  #define WEBSERVER_MAX_SENDLIST 10
+  #define WEBSERVER_MAX_SENDLIST 12
 #endif
 
 #ifndef WEBSERVER_CLIENT_TIMEOUT
@@ -158,9 +167,16 @@ typedef struct webserver_t {
   tcp_pcb *pcb;
   WiFiClient *client;
   char ip[17];
-  uint8_t port;
+  uint16_t port;
   unsigned long lastseen;
   unsigned long lastping;
+  /* Sync TX state; the queue itself is the sendlist */
+  unsigned long tx_last_progress;
+  uint16_t tx_offset;
+  uint8_t tx_hdr:1;
+  uint8_t tx_framed:1;
+  uint8_t tx_last:1;
+  uint8_t tx_failed:1;
   uint8_t is_websocket:1;
   uint8_t reqtype:1;
   uint8_t async:1;
