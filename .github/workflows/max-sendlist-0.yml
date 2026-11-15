@@ -33,14 +33,15 @@ jobs:
           cd build
           make -j4
           ./start
+          ./start_sendlist
           cd ..
 
       - name: Coveralls
         run: |
           cd build
           gem install coveralls-lcov
-          lcov -c -d CMakeFiles/start.dir -o coverage.info
-          lcov -r coverage.info '/usr/include/*' '*main.cpp' -o coverage-filtered.info
+          lcov -c -d CMakeFiles/start.dir -d CMakeFiles/start_sendlist.dir -o coverage.info
+          lcov -r coverage.info '/usr/include/*' '*main.cpp' '*tests/*' -o coverage-filtered.info
           lcov --list coverage-filtered.info
           genhtml coverage-filtered.info --output-directory coverage-html
           coveralls-lcov --repo-token ${{ secrets.COVERALLS }} coverage.info

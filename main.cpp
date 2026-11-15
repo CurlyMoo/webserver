@@ -28,6 +28,7 @@
   #include <pthread.h>
 #endif
 
+#include <string>
 #include "strncasestr.h"
 #include "webserver.h"
 #include "unittest.h"
@@ -41,6 +42,7 @@ static uint8_t check = 1;
 static unsigned char *contents = NULL;
 static unsigned int readptr = 0;
 static unsigned int filelen = 0;
+static std::string wire;
 
 struct webvalues_t {
   unsigned char *name;
@@ -1989,665 +1991,13 @@ int client_write(unsigned char *buf, int size) {
         done = 0;
       } break;
     }
-  } else if(testnr == 0) {
-    switch(argnr++) {
-      case 0: {
-        if(memcmp((char *)buf,
-          "HTTP/1.1 200 OK\r\n"
-          "Access-Control-Allow-Origin: *\r\n"
-          "Keep-Alive: timeout=15, max=100\r\n"
-          "Content-Type: text/html\r\n"
-          "Transfer-Encoding: chunked\r\n\r\n",
-          size
-          ) != 0 || size != 137) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 1: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 2: {
-        if(memcmp((char *)buf, (char *)gplv3_1, size) != 0 || size != 286) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 3: {
-        if(memcmp((char *)buf, (char *)gplv3_2, size) != 0 || size != 1158) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 5: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 6: {
-        if(memcmp((char *)buf, (char *)&gplv3_2[1158], size) != 0 || size != 52) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 7: {
-        if(memcmp((char *)buf, (char *)gplv3_3, size) != 0 || size != 1392) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 9: {
-        if(memcmp((char *)buf, "257\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 10: {
-        if(memcmp((char *)buf, (char *)&gplv3_3[MTU_SIZE - 68], size) != 0 || size != 599) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 12: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 13: {
-        if(memcmp((char *)buf, (char *)gplv3_4, size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 15: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 16: {
-        if(memcmp((char *)buf, (char *)&gplv3_4[1444], size) != 0 || size != 486) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 17: {
-        if(memcmp((char *)buf, (char *)gplv3_5, size) != 0 || size != 958) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 19: {
-        if(memcmp((char *)buf, "496\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 20: {
-        if(memcmp((char *)buf, (char *)&gplv3_5[958], size) != 0 || size != 1174) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 22: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 23: {
-        if(memcmp((char *)buf, (char *)gplv3_6, size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 25: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 26: {
-        if(memcmp((char *)buf, (char *)&gplv3_6[1444], size) != 0 || size != 1316) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 27: {
-        if(memcmp((char *)buf, (char *)gplv3_7, size) != 0 || size != 128) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 29: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 30: {
-        if(memcmp((char *)buf, (char *)&gplv3_7[128], size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 32: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 33: {
-        if(memcmp((char *)buf, (char *)&gplv3_7[128+1444], size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 35: {
-        if(memcmp((char *)buf, "4B\r\n", size) != 0 || size != 4) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 36: {
-        if(memcmp((char *)buf, (char *)&gplv3_7[128+1444+1444], size) != 0 || size != 75) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 38: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 39: {
-        if(memcmp((char *)buf, (char *)gplv3_8, size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 41: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 42: {
-        if(memcmp((char *)buf, (char *)&gplv3_8[1444], size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 44: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 45: {
-        if(memcmp((char *)buf, (char *)&gplv3_8[1444*2], size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 47: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 48: {
-        if(memcmp((char *)buf, (char *)&gplv3_8[1444*3], size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 50: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 51: {
-        if(memcmp((char *)buf, (char *)&gplv3_8[1444*4], size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 53: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 54: {
-        if(memcmp((char *)buf, (char *)&gplv3_8[1444*5], size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 56: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 57: {
-        if(memcmp((char *)buf, (char *)&gplv3_8[1444*6], size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 59: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 60: {
-        if(memcmp((char *)buf, (char *)&gplv3_8[1444*7], size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 62: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 63: {
-        if(memcmp((char *)buf, (char *)&gplv3_8[1444*8], size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 65: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 66: {
-        if(memcmp((char *)buf, (char *)&gplv3_8[1444*9], size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 68: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 69: {
-        if(memcmp((char *)buf, (char *)&gplv3_8[1444*10], size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 71: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 72: {
-        if(memcmp((char *)buf, (char *)&gplv3_8[1444*11], size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 74: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 75: {
-        if(memcmp((char *)buf, (char *)&gplv3_8[1444*12], size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 77: {
-        if(memcmp((char *)buf, "5A4\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 78: {
-        if(memcmp((char *)buf, (char *)&gplv3_8[1444*13], size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 80: {
-        if(memcmp((char *)buf, "56F\r\n", size) != 0 || size != 5) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 81: {
-        if(memcmp((char *)buf, (char *)&gplv3_8[1444*14], size) != 0 || size != 1391) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      default: {
-        exit(-1);
-      } break;
-    }
-  } else if(testnr == 1) {
-    switch(argnr++) {
-      case 0: {
-        if(memcmp((char *)buf,
-          "HTTP/1.1 200 OK\r\n"
-          "Access-Control-Allow-Origin: *\r\n"
-          "Server: ESP8266\r\n"
-          "Keep-Alive: timeout=15, max=100\r\n"
-          "Content-Type: text/html\r\n"
-          "Content-Length: 33907\r\n\r\n",
-          size
-          ) != 0 || size != 149) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 1: {
-        if(memcmp((char *)buf, (char *)gplv3_1, size) != 0 || size != 286) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 2: {
-        if(memcmp((char *)buf, (char *)gplv3_2, size) != 0 || size != 1158) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 3: {
-        if(memcmp((char *)buf, (char *)&gplv3_2[1158], size) != 0 || size != 52) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 4: {
-        if(memcmp((char *)buf, (char *)gplv3_3, size) != 0 || size != 1392) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 5: {
-        if(memcmp((char *)buf, (char *)&gplv3_3[1392], size) != 0 || size != 599) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 6: {
-        if(memcmp((char *)buf, (char *)gplv3_4, size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 7: {
-        if(memcmp((char *)buf, (char *)&gplv3_4[1444], size) != 0 || size != 486) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 8: {
-        if(memcmp((char *)buf, (char *)gplv3_5, size) != 0 || size != 958) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 9: {
-        if(memcmp((char *)buf, (char *)&gplv3_5[958], size) != 0 || size != 1174) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 10: {
-        if(memcmp((char *)buf, (char *)gplv3_6, size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 11: {
-        if(memcmp((char *)buf, (char *)&gplv3_6[1444], size) != 0 || size != 1316) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 12: {
-        if(memcmp((char *)buf, (char *)gplv3_7, size) != 0 || size != 128) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 13: {
-        if(memcmp((char *)buf, (char *)&gplv3_7[128], size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 14: {
-        if(memcmp((char *)buf, (char *)&gplv3_7[128+1444], size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 15: {
-        if(memcmp((char *)buf, (char *)&gplv3_7[128+1444+1444], size) != 0 || size != 75) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 16: {
-        if(memcmp((char *)buf, (char *)gplv3_8, size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 17:
-      case 18:
-      case 19:
-      case 20:
-      case 21:
-      case 22:
-      case 23:
-      case 24:
-      case 25:
-      case 26:
-      case 27:
-      case 28:
-      case 29: {
-        if(memcmp((char *)buf, (char *)&gplv3_8[1444*(argnr-17)], size) != 0 || size != 1444) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      case 30: {
-        if(memcmp((char *)buf, (char *)&gplv3_8[1444*(argnr-17)], size) != 0 || size != 1391) {
-          fprintf(stderr, "%s:%d: test #%d failed\n",
-            __FUNCTION__, __LINE__, testnr+1
-          );
-          exit(-1);
-        }
-      } break;
-      default: {
-        exit(-1);
-      } break;
-    }
-  } else if(testnr == 2) {
-    if(memcmp((char *)buf,
-      "HTTP/1.1 301 Moved Permanently\r\n"
-      "Location: /\r\n\r\n",
-      size
-      ) != 0 || size != 47) {
-      fprintf(stderr, "%s:%d: test #%d failed\n",
-        __FUNCTION__, __LINE__, testnr+1
-      );
-      exit(-1);
-    }
-    done = 0;
+  } else if(testnr >= 0) {
+    /*
+     * Writes are no longer blocking and the socket may accept only part of the
+     * data. Collect what has been sent and verify the response as a whole
+     * once the client has been closed.
+     */
+    wire.append((char *)buf, size);
   }
 
   return size;
@@ -2656,47 +2006,14 @@ int client_write(unsigned char *buf, int size) {
 void test_send(void);
 
 int client_write_P(const char *buf, int size) {
-  if(testnr == 0) {
-    if(argnr <= 82) {
-      if(memcmp((char *)buf, "\r\n", size) != 0 || size != 2) {
-        fprintf(stderr, "%s:%d: test #%d failed\n",
-          __FUNCTION__, __LINE__, testnr+1
-        );
-        exit(-1);
-      }
-    } else if(argnr == 83) {
-      if(memcmp((char *)buf, "0\r\n\r\n", size) != 0 || size != 5) {
-        fprintf(stderr, "%s:%d: test #%d failed\n",
-          __FUNCTION__, __LINE__, testnr+1
-        );
-        exit(-1);
-      }
-      done = 0;
-      return size;
-    } else {
-      fprintf(stderr, "%s:%d: test #%d failed\n",
-        __FUNCTION__, __LINE__, testnr+1
-      );
-      exit(-1);
-    }
-  } else if(testnr == 1) {
-    if(argnr == 31) {
-       if(memcmp((char *)buf, "\r\n\r\n", size) != 0 || size != 4) {
-        fprintf(stderr, "%s:%d: test #%d failed\n",
-          __FUNCTION__, __LINE__, testnr+1
-        );
-        exit(-1);
-      }
-    } else {
-      fprintf(stderr, "%s:%d: test #%d failed\n",
-        __FUNCTION__, __LINE__, testnr+1
-      );
-      exit(-1);
-    }
-    done = 0;
-  }
-  argnr++;
-  return size;
+  /*
+   * Everything is sent from the sendlist through write()
+   */
+  fprintf(stderr, "%s:%d: test #%d failed, write_P must not be used\n",
+    __FUNCTION__, __LINE__, testnr+1
+  );
+  exit(-1);
+  return 0;
 }
 
 int client_connected(void) {
@@ -2808,6 +2125,14 @@ void test_websocket(void) {
     webserver_loop();
   }
 
+  /*
+   * The writes are no longer blocking, let the client send what is left and
+   * return to the WebSocket step
+   */
+  for(int i=0;i<10 && clients[0].data.step == WEBSERVER_CLIENT_SENDING;i++) {
+    webserver_loop();
+  }
+
   if(clients[0].data.step != WEBSERVER_CLIENT_WEBSOCKET) {
     fprintf(stderr, "%s:%d: test #%d failed, expected %d got %d\n",
       __FUNCTION__, __LINE__, testnr+1, WEBSERVER_CLIENT_WEBSOCKET, clients[0].data.step
@@ -2820,6 +2145,14 @@ void test_websocket(void) {
   websocket_write_all((const char *)"Thu Jan  1 01:09:12 1970 (565193): Heishamon stats: Uptime: 0 days 0 hours 9 minutes 25 seconds ## Free memory: 74% 30152 bytes ## Wifi: 48% (RSSI: -76) ## Mqtt reconnects: 0 ## Correct data: 0.00%", 197);
 
   while(done) {
+    webserver_loop();
+  }
+
+  /*
+   * The writes are no longer blocking, let the client send what is left and
+   * return to the WebSocket step
+   */
+  for(int i=0;i<10 && clients[0].data.step == WEBSERVER_CLIENT_SENDING;i++) {
     webserver_loop();
   }
 
@@ -2982,6 +2315,85 @@ void test_receive_binary(char *file, int nr, unsigned int conlen, int offset) {
 
 }
 
+static void send_failed(int line, const char *what) {
+  fprintf(stderr, "%s:%d: test #%d failed: %s\n", __FUNCTION__, line, testnr+1, what);
+  exit(-1);
+}
+
+/*
+ * Check the complete response that has been collected from the client
+ */
+static void test_send_check(void) {
+  std::string body;
+  body.append((char *)gplv3_1);
+  body.append((char *)gplv3_2);
+  body.append((char *)gplv3_3);
+  body.append((char *)gplv3_4);
+  body.append((char *)gplv3_5);
+  body.append((char *)gplv3_6);
+  body.append((char *)gplv3_7);
+  body.append((char *)gplv3_8);
+
+  if(testnr == 0) {
+    std::string header =
+      "HTTP/1.1 200 OK\r\n"
+      "Access-Control-Allow-Origin: *\r\n"
+      "Keep-Alive: timeout=15, max=100\r\n"
+      "Content-Type: text/html\r\n"
+      "Transfer-Encoding: chunked\r\n\r\n";
+    if(wire.compare(0, header.size(), header) != 0) {
+      send_failed(__LINE__, "header");
+    }
+    /*
+     * Decode the chunks
+     */
+    std::string decoded;
+    size_t pos = header.size();
+    while(1) {
+      size_t e = wire.find("\r\n", pos);
+      if(e == std::string::npos || e == pos) {
+        send_failed(__LINE__, "chunk size");
+      }
+      std::string num = wire.substr(pos, e-pos);
+      char *stop = NULL;
+      unsigned long len = strtoul(num.c_str(), &stop, 16);
+      if(*stop != '\0') {
+        send_failed(__LINE__, "chunk size");
+      }
+      pos = e+2;
+      if(len == 0) {
+        if(wire.compare(pos, 2, "\r\n") != 0 || pos+2 != wire.size()) {
+          send_failed(__LINE__, "terminator");
+        }
+        break;
+      }
+      if(pos+len+2 > wire.size() || wire.compare(pos+len, 2, "\r\n") != 0) {
+        send_failed(__LINE__, "chunk");
+      }
+      decoded.append(wire, pos, len);
+      pos += len+2;
+    }
+    if(decoded != body) {
+      send_failed(__LINE__, "body");
+    }
+  } else if(testnr == 1) {
+    std::string header =
+      "HTTP/1.1 200 OK\r\n"
+      "Access-Control-Allow-Origin: *\r\n"
+      "Server: ESP8266\r\n"
+      "Keep-Alive: timeout=15, max=100\r\n"
+      "Content-Type: text/html\r\n"
+      "Content-Length: 33907\r\n\r\n";
+    if(wire != header + body + "\r\n\r\n") {
+      send_failed(__LINE__, "response");
+    }
+  } else if(testnr == 2) {
+    if(wire != "HTTP/1.1 301 Moved Permanently\r\nLocation: /\r\n\r\n") {
+      send_failed(__LINE__, "response");
+    }
+  }
+}
+
 int main(void) {
   srand(time(NULL));
   test_receive();
@@ -3014,10 +2426,12 @@ int main(void) {
     } else if(testnr == 2) {
       fprintf(stderr, "%s:%d: send test #%d header redirect\n", __FUNCTION__, __LINE__, testnr+1);
     }
+    wire.clear();
     test_send();
     while(done) {
       webserver_loop();
     }
+    test_send_check();
     delete clients[1].data.client;
   }
   return 0;

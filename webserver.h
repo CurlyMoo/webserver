@@ -158,9 +158,16 @@ typedef struct webserver_t {
   tcp_pcb *pcb;
   WiFiClient *client;
   char ip[17];
-  uint8_t port;
+  uint16_t port;
   unsigned long lastseen;
   unsigned long lastping;
+  /* Sync TX state; the queue itself is the sendlist */
+  unsigned long tx_last_progress;
+  uint16_t tx_offset;
+  uint8_t tx_hdr:1;
+  uint8_t tx_framed:1;
+  uint8_t tx_last:1;
+  uint8_t tx_failed:1;
   uint8_t is_websocket:1;
   uint8_t reqtype:1;
   uint8_t async:1;
