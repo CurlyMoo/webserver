@@ -45,10 +45,34 @@ static unsigned int tcp_outputs = 0;
 static int tcp_policy_random = 0;
 static unsigned int tcp_rnd_state = 1;
 static std::string tcp_wire;
-unsigned int tcp_sndbuf(struct tcp_pcb *pcb) { return snd_room; }
-void tcp_close(struct tcp_pcb *pcb) {}
-void tcp_output(struct tcp_pcb *pcb) { tcp_outputs++; }
+/*
+ * lwIP raw API calls are only allowed from the lwIP thread (the tcp_sent,
+ * tcp_recv and tcp_poll callbacks) or with the TCPIP core locked.
+ */
+static int lwip_lock_depth = 0;
+static int lwip_in_callback = 0;
+static unsigned int lwip_violations = 0;
+void webserver_lwip_lock(int lock) {
+  lwip_lock_depth += lock ? 1 : -1;
+  if(lwip_lock_depth < 0) {
+    fprintf(stderr, "lwIP core unlocked more than locked\n");
+    lwip_violations++;
+    lwip_lock_depth = 0;
+  }
+}
+static void lwip_check(const char *fn) {
+  if(lwip_lock_depth == 0 && lwip_in_callback == 0) {
+    fprintf(stderr, "%s called without the lwIP core lock\n", fn);
+    lwip_violations++;
+  }
+}
+#define IN_LWIP(x) do { lwip_in_callback++; x; lwip_in_callback--; } while(0)
+
+unsigned int tcp_sndbuf(struct tcp_pcb *pcb) { lwip_check("tcp_sndbuf"); return snd_room; }
+void tcp_close(struct tcp_pcb *pcb) { lwip_check("tcp_close"); }
+void tcp_output(struct tcp_pcb *pcb) { lwip_check("tcp_output"); tcp_outputs++; }
 int tcp_write(struct tcp_pcb *pcb, void *buf, unsigned int len, unsigned int flags) {
+  lwip_check("tcp_write");
   tcp_writes++;
   tcp_rnd_state = tcp_rnd_state * 1103515245 + 12345;
   if(len > snd_room) {
@@ -143,6 +167,18 @@ static void client_stop(void) {
 static std::string big(3000, 'x');
 static std::string expected_body;
 static unsigned int calls = 0;
+/*
+ * Content nodes queued by SCENARIO_NODES in the first callback call. The
+ * sendlist adds a chunk header and trailer around everything that is queued
+ * before the first byte is sent, so WEBSERVER_MAX_SENDLIST - 2 is the most
+ * that fits. Note that the callback calls for content 0 and 1 are both made
+ * before anything is sent, their nodes count together.
+ */
+#if WEBSERVER_MAX_SENDLIST > 0
+static unsigned int nodes = WEBSERVER_MAX_SENDLIST - 2;
+#else
+static unsigned int nodes = 40;
+#endif
 static unsigned int scenario = 0;
 
 enum {
@@ -151,6 +187,7 @@ enum {
   SCENARIO_EMPTY,
   SCENARIO_CLOSE_AFTER_CONTENT,
   SCENARIO_ERROR_AFTER_HEADER,
+  SCENARIO_NODES,
 #if WEBSERVER_MAX_SENDLIST > 0
   SCENARIO_QUEUE_FULL,
 #endif
@@ -188,6 +225,20 @@ static int8_t callback(struct webserver_t *client, void *data) {
       } else if(calls == 3) {
         webserver_send_content(client, (char *)big.c_str(), big.size());
         expected_body += big;
+      }
+    } break;
+    case SCENARIO_NODES: {
+      if(calls == 1) {
+        webserver_send(client, 200, "text/plain", 0);
+        for(unsigned int i=0;i<nodes;i++) {
+          if(i % 2 == 0) {
+            webserver_send_content(client, (char *)"a", 1);
+            expected_body += "a";
+          } else {
+            webserver_send_content_P(client, (PGM_P)"b", 1);
+            expected_body += "b";
+          }
+        }
       }
     } break;
     case SCENARIO_CLOSE_AFTER_CONTENT: {
@@ -328,7 +379,7 @@ static void verify_http(const std::string &wire, int pol, unsigned int sc) {
   hdr += 4;
 
   std::string header = wire.substr(0, hdr);
-  if(sc == SCENARIO_CHUNKED || sc == SCENARIO_EMPTY || sc == SCENARIO_CLOSE_AFTER_CONTENT) {
+  if(sc == SCENARIO_CHUNKED || sc == SCENARIO_EMPTY || sc == SCENARIO_CLOSE_AFTER_CONTENT || sc == SCENARIO_NODES) {
     CHECK(header.find("Transfer-Encoding: chunked\r\n") != std::string::npos);
     std::string body;
     size_t end = 0;
@@ -406,12 +457,14 @@ static void run_async(unsigned int sd, int pol, unsigned int sc) {
       /*
        * Like webserver_async_receive does after the request has been parsed
        */
-      if(clients[0].data.callback(&clients[0].data, NULL) == -1) {
-        clients[0].data.step = WEBSERVER_CLIENT_CLOSE;
-      }
+      IN_LWIP(
+        if(clients[0].data.callback(&clients[0].data, NULL) == -1) {
+          clients[0].data.step = WEBSERVER_CLIENT_CLOSE;
+        }
+      );
       clients[0].data.content++;
     }
-    webserver_sent(NULL, clients[0].data.pcb, 0);
+    IN_LWIP(webserver_sent(NULL, clients[0].data.pcb, 0));
     if(clients[0].data.step == WEBSERVER_CLIENT_CLOSE && clients[0].data.tx_hdr == 0) {
       break;
     }
@@ -445,6 +498,32 @@ static void run_queue_full(void) {
    */
   CHECK(stops == 1);
   CHECK(wire.find("0\r\n\r\n") == std::string::npos);
+#endif
+}
+
+/*
+ * The chunk header and trailer need a node each. A callback that fills the
+ * whole sendlist is dropped instead of answering with a truncated response.
+ */
+static void run_nodes_limit(void) {
+#if WEBSERVER_MAX_SENDLIST > 0
+  unsigned int saved = nodes;
+  /*
+   * The most that fits is sent completely (checked for every policy by the
+   * generic scenarios), one more is a failure
+   */
+  nodes = WEBSERVER_MAX_SENDLIST - 1;
+  reset_test(1, POLICY_UNLIMITED);
+  scenario = SCENARIO_NODES;
+  setup_client();
+  clients[0].data.step = WEBSERVER_CLIENT_WRITE;
+  for(int i=0;i<100 && stops == 0;i++) {
+    webserver_loop();
+  }
+  CHECK(stops == 1);
+  CHECK(wire.find("0\r\n\r\n") == std::string::npos);
+  CHECK(wire.find("ab") == std::string::npos);
+  nodes = saved;
 #endif
 }
 
@@ -603,7 +682,7 @@ static void run_async_websocket(unsigned int sd, int pol) {
     "Connection: Upgrade\r\n"
     "Upgrade: websocket\r\n\r\n";
   set_room(pol);
-  webserver_sync_receive(&clients[0].data, (uint8_t *)request, strlen(request));
+  IN_LWIP(webserver_sync_receive(&clients[0].data, (uint8_t *)request, strlen(request)));
   CHECK(clients[0].data.step == WEBSERVER_CLIENT_WEBSOCKET);
 
   const char *handshake = "HTTP/1.1 101 Switching Protocols\r\n"
@@ -651,7 +730,7 @@ static void run_async_websocket(unsigned int sd, int pol) {
       /*
        * The acknowledgement of earlier data
        */
-      webserver_sent(NULL, clients[0].data.pcb, 0);
+      IN_LWIP(webserver_sent(NULL, clients[0].data.pcb, 0));
     }
     clients[0].data.lastseen = now;
   }
@@ -676,18 +755,18 @@ static void run_async_ping(void) {
    */
   now = WEBSERVER_CLIENT_PING_INTERVAL - 100;
   clients[0].data.lastseen = now;
-  webserver_poll(NULL, clients[0].data.pcb);
+  IN_LWIP(webserver_poll(NULL, clients[0].data.pcb));
   CHECK(tcp_wire.size() == 0);
 
   now = WEBSERVER_CLIENT_PING_INTERVAL + 100;
   clients[0].data.lastseen = now;
-  webserver_poll(NULL, clients[0].data.pcb);
+  IN_LWIP(webserver_poll(NULL, clients[0].data.pcb));
   CHECK(tcp_wire.size() == 2);
   CHECK((unsigned char)tcp_wire[0] == 0x89 && tcp_wire[1] == 0);
   /*
    * One PING per interval
    */
-  webserver_poll(NULL, clients[0].data.pcb);
+  IN_LWIP(webserver_poll(NULL, clients[0].data.pcb));
   CHECK(tcp_wire.size() == 2);
   CHECK(clients[0].data.step == WEBSERVER_CLIENT_WEBSOCKET);
 
@@ -695,7 +774,7 @@ static void run_async_ping(void) {
    * Without a PONG the client is dropped after the timeout
    */
   now += WEBSERVER_CLIENT_TIMEOUT + 1;
-  webserver_poll(NULL, clients[0].data.pcb);
+  IN_LWIP(webserver_poll(NULL, clients[0].data.pcb));
   CHECK(clients[0].data.step == WEBSERVER_CLIENT_CLOSE);
 }
 
@@ -749,6 +828,7 @@ int main(void) {
     }
   }
   run_queue_full();
+  run_nodes_limit();
   run_stalled();
   for(pol=0;pol<POLICY_LAST;pol++) {
     for(sd=1;sd<=(pol == POLICY_RANDOM ? 300u : 1u);sd++) {
@@ -762,6 +842,11 @@ int main(void) {
   }
   run_ping();
   run_async_ping();
+  /*
+   * No raw API call without the lwIP lock, and every lock released
+   */
+  CHECK(lwip_violations == 0);
+  CHECK(lwip_lock_depth == 0);
   fprintf(stderr, "ok\n");
   return 0;
 }

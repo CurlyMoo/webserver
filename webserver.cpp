@@ -90,7 +90,26 @@ static uint8_t *rbuffer = NULL;
  */
 #ifdef ESP32
 #include "lwip/sockets.h"
+#include "lwip/tcpip.h"
 #include <errno.h>
+#endif
+/*
+ * The lwIP raw API (tcp_new, tcp_write, tcp_output, ...) may only be used from
+ * the lwIP thread or with the TCPIP core locked. The tcp_sent / tcp_recv /
+ * tcp_poll callbacks run in the lwIP thread already, everything called from
+ * the application (webserver_start, websocket_write*) has to take the lock.
+ */
+#if defined(ESP32) && LWIP_TCPIP_CORE_LOCKING
+  #define WEB_LWIP_LOCK() LOCK_TCPIP_CORE()
+  #define WEB_LWIP_UNLOCK() UNLOCK_TCPIP_CORE()
+#elif defined(WEBSERVER_LWIP_LOCK_HOOK)
+  /* Unit tests: verify that the raw API is only used with the lock */
+  extern "C++" void webserver_lwip_lock(int lock);
+  #define WEB_LWIP_LOCK() webserver_lwip_lock(1)
+  #define WEB_LWIP_UNLOCK() webserver_lwip_lock(0)
+#else
+  #define WEB_LWIP_LOCK()
+  #define WEB_LWIP_UNLOCK()
 #endif
 #if defined(ESP8266) || defined(ESP32)
   #define WEB_TX_LOG(...) Serial.printf(__VA_ARGS__)
@@ -1442,6 +1461,7 @@ static int8_t webserver_sendlist_add(struct webserver_t *client, const void *buf
 }
 
 static int8_t webserver_tx_flush(struct webserver_t *client, uint8_t head_only);
+static void webserver_tx_kick(struct webserver_t *client);
 
 /*
  * The HTTP response header is the first node of the sendlist and is not part
@@ -2070,27 +2090,21 @@ static void send_websocket_handshake(struct webserver_t *client, const char *key
    * A synchronous client is sent from webserver_loop()
    */
   webserver_sendlist_add(client, buf, len, 0, 0);
-  if(client->async == 1) {
-    webserver_tx_flush(client, 0);
-  }
+  webserver_tx_kick(client);
 }
 
 void websocket_write_P(struct webserver_t *client, PGM_P data, uint16_t data_len) {
   websocket_send_header(client, WEBSOCKET_OPCODE_TEXT, data_len);
   webserver_send_content_P(client, data, data_len);
   client->step = WEBSERVER_CLIENT_SENDING;
-  if(client->async == 1) {
-    webserver_tx_flush(client, 0);
-  }
+  webserver_tx_kick(client);
 }
 
 void websocket_write(struct webserver_t *client, char *data, uint16_t data_len) {
   websocket_send_header(client, WEBSOCKET_OPCODE_TEXT, data_len);
   webserver_send_content(client, (char *)data, data_len);
   client->step = WEBSERVER_CLIENT_SENDING;
-  if(client->async == 1) {
-    webserver_tx_flush(client, 0);
-  }
+  webserver_tx_kick(client);
 }
 
 void websocket_write_all(char *data, uint16_t data_len) {
@@ -2108,6 +2122,18 @@ void websocket_write_all_P(PGM_P data, uint16_t data_len) {
     if(clients[i].data.is_websocket == 1 && clients[i].data.step != WEBSERVER_CLIENT_CLOSE) {
       websocket_write_P(&clients[i].data, data, data_len);
     }
+  }
+}
+
+/*
+ * Async clients are sent from the lwIP callbacks. Frames queued by the
+ * application have to start the sending themselves, with the core locked.
+ */
+static void webserver_tx_kick(struct webserver_t *client) {
+  if(client->async == 1) {
+    WEB_LWIP_LOCK();
+    webserver_tx_flush(client, 0);
+    WEB_LWIP_UNLOCK();
   }
 }
 
@@ -2146,9 +2172,7 @@ void websocket_send_header(struct webserver_t *client, uint8_t opcode, uint16_t 
    * Async clients are not sent from webserver_loop() and nothing else
    * triggers the sending of a frame while no data is in flight.
    */
-  if(client->async == 1) {
-    webserver_tx_flush(client, 0);
-  }
+  webserver_tx_kick(client);
 }
 
 int websocket_read(struct webserver_t *client, unsigned char *buf, ssize_t buf_len) {
@@ -2685,8 +2709,10 @@ int8_t webserver_start(int port, webserver_cb_t *callback, uint8_t async) {
     }
 
 #if defined(ESP8266) || defined(ESP32)
+    WEB_LWIP_LOCK();
     async_server = tcp_new();
     if(async_server == NULL) {
+      WEB_LWIP_UNLOCK();
       return -1;
     }
 
@@ -2702,6 +2728,7 @@ int8_t webserver_start(int port, webserver_cb_t *callback, uint8_t async) {
     uint8_t err = tcp_bind(async_server, &local_addr, port);
     if(err != ERR_OK) {
       tcp_close(async_server);
+      WEB_LWIP_UNLOCK();
       return -1;
     }
 
@@ -2709,6 +2736,7 @@ int8_t webserver_start(int port, webserver_cb_t *callback, uint8_t async) {
     if(listen_pcb == NULL) {
       tcp_close(async_server);
       async_server = NULL;
+      WEB_LWIP_UNLOCK();
       return -1;
     }
     async_server = listen_pcb;
@@ -2716,6 +2744,7 @@ int8_t webserver_start(int port, webserver_cb_t *callback, uint8_t async) {
     tcp_setprio(async_server, TCP_PRIO_MAX);
     tcp_accept(async_server, &webserver_client);
     tcp_arg(async_server, (void *)callback);
+    WEB_LWIP_UNLOCK();
 #endif
   } else {
     rbuffer = (uint8_t *)malloc(WEBSERVER_READ_SIZE);
